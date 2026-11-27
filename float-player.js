@@ -5,10 +5,9 @@
   'use strict';
   if (window.__fp) { window.__fp.toggle(); return; }
 
-  const VERSION = '2.0';
+  const VERSION = '1.0';
   const SIGN_TEXT = 'Автор @https';
   const SIGN_HREF = 'https://world84.spcs.bio/mysite/index/https/';
-  const DOCK_VIDEO = 'data:video/mp4;base64,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';
 
   /* ---------- утилиты ---------- */
   const store = {
@@ -37,8 +36,6 @@
     heartF: svg('<path d="M12 21s-7-4.6-9.3-9A5.2 5.2 0 0 1 12 6.3 5.2 5.2 0 0 1 21.3 12C19 16.4 12 21 12 21z"/>'),
     more: svg('<circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>'),
     back: svg('<path d="M15 6l-6 6 6 6" ' + ST + '/>'),
-    expand: svg('<path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5" ' + ST + '/>'),
-    shrink: svg('<path d="M8 3v5H3M16 3v5h5M3 16h5v5M21 16h-5v5" ' + ST + '/>'),
     gear: svg('<circle cx="12" cy="12" r="3" ' + ST + '/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" ' + ST + '/>')
   };
 
@@ -247,30 +244,7 @@ a{color:inherit}
 .pit{display:block;width:100%;min-height:50px;padding:0 14px;text-align:left;font-size:16px;color:var(--tx);border-radius:12px}
 .pit:active{background:var(--f2)}
 .pit.bad{color:#ff6b6b}
-
-/* Modern visual layer */
-.dock{isolation:isolate;overflow:hidden}
-.dock-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:0;transition:opacity .35s;border-radius:inherit;pointer-events:none}
-.dock.has-video .dock-video{opacity:.82}
-.dock.video-off .dock-video{opacity:0}
-.dock::after{content:'';position:absolute;inset:0;z-index:0;border-radius:inherit;background:linear-gradient(115deg,rgba(4,8,18,.08),rgba(4,8,18,.48));pointer-events:none}
-.dock .pb,.dock .mb{z-index:1;position:relative}
-.sheet{overflow:hidden;isolation:isolate}
-.sheet::before{content:'';position:absolute;inset:-35%;z-index:-2;pointer-events:none;opacity:.34;background:radial-gradient(ellipse at 18% 18%,var(--ambient-a,rgba(90,120,255,.4)),transparent 48%),radial-gradient(ellipse at 82% 70%,var(--ambient-b,rgba(220,80,170,.32)),transparent 52%);filter:blur(42px);transition:background 1s ease}
-.sheet>*{position:relative}
-.sheet.ambient-off::before{display:none}
-.visualizer.off{display:none!important}
-.ui.immersive .sheet{max-height:96vh;max-height:96dvh;min-height:90vh;min-height:90dvh;padding-top:10px;gap:12px}
-.ui.immersive .now{flex-direction:column;text-align:center;gap:12px;padding:4px 0}
-.ui.immersive .cover{width:min(66vw,290px);height:min(66vw,290px);border-radius:24px;box-shadow:0 18px 55px rgba(0,0,0,.34);transition:width .35s,height .35s}
-.ui.immersive .title{font-size:21px;max-width:84vw}.ui.immersive .meta{width:100%}
-.ui.immersive .ctl{max-width:380px;width:100%;margin:0 auto}
-.visualizer{height:42px;display:flex;align-items:center;justify-content:center;gap:4px;opacity:.88}
-.visualizer i{display:block;width:4px;height:5px;border-radius:5px;background:var(--bar);opacity:.8}
-.immersive-toggle{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--mu);background:var(--f1)}
-@media(max-height:700px){.ui.immersive .cover{width:min(48vw,220px);height:min(48vw,220px)}.ui.immersive .sheet{gap:7px}}
-@media (prefers-reduced-motion:reduce){.playing .ring{animation:none}.sheet,.dock.snap{transition:none}.visualizer i{transition:none}}
-
+@media (prefers-reduced-motion:reduce){.playing .ring{animation:none}.sheet,.dock.snap{transition:none}}
 `;
 
   /* ---------- DOM ---------- */
@@ -282,7 +256,6 @@ a{color:inherit}
     '<div class="ui">' +
       '<div class="nav"></div>' +
       '<div class="dock off">' +
-        '<video class="dock-video" muted playsinline loop preload="none" aria-hidden="true"></video>' +
         '<button class="pb" data-act="play" aria-label="Играть / пауза"><span class="ring"></span><span class="disk"></span></button>' +
         '<button class="mb" data-act="open" aria-label="Меню плеера">' + IC.dots + '</button>' +
       '</div>' +
@@ -290,13 +263,12 @@ a{color:inherit}
       '<div class="sheet" role="dialog" aria-label="Плеер">' +
         '<div class="hd"><span class="grab"></span>' +
           '<a class="sig" href="' + SIGN_HREF + '" target="_blank" rel="noopener">' + SIGN_TEXT + '</a>' +
-          '<div class="hr"><button class="immersive-toggle" data-act="immersive" aria-label="Кинематографический режим">' + IC.expand + '</button><button class="cl" data-act="settings" aria-label="Настройки">' + IC.gear + '</button>' +
+          '<div class="hr"><button class="cl" data-act="settings" aria-label="Настройки">' + IC.gear + '</button>' +
           '<button class="cl" data-act="close" aria-label="Свернуть">' + IC.down + '</button></div></div>' +
         '<div class="now"><div class="cover"><span>♪</span><img alt="" hidden></div>' +
           '<div class="meta"><div class="title">Выберите трек</div><div class="artist">&nbsp;</div></div>' +
           '<button class="ib" data-act="favcur" aria-label="В избранное">' + IC.heart + '</button></div>' +
         '<div class="seek"><span class="t cur">0:00</span><div class="bar"><div class="track"><div class="fill"></div><div class="knob"></div></div></div><span class="t dur">0:00</span></div>' +
-        '<div class="visualizer" aria-hidden="true">' + Array.from({length: 30}, () => '<i></i>').join('') + '</div>' +
         '<div class="ctl">' +
           '<button class="cb sm" data-act="shuffle" aria-label="Перемешать">' + IC.shuffle + '</button>' +
           '<button class="cb" data-act="prev" aria-label="Предыдущий">' + IC.prev + '</button>' +
@@ -309,10 +281,6 @@ a{color:inherit}
         '<div class="list"></div>' +
         '<div class="settings">' +
           '<div class="sh">Тема</div><div class="themes"></div>' +
-          '<div class="sh">Визуальные эффекты</div>' +
-          '<button class="opt" data-act="videoFx" role="switch" aria-checked="true"><span class="sw on"></span><span>Живое видео в плавающей кнопке</span></button>' +
-          '<button class="opt" data-act="ambientFx" role="switch" aria-checked="true"><span class="sw on"></span><span>Адаптивная атмосфера обложки</span></button>' +
-          '<button class="opt" data-act="visualizerFx" role="switch" aria-checked="true"><span class="sw on"></span><span>Аудиореактивный визуализатор</span></button>' +
           '<div class="sh">Поведение</div>' +
           '<button class="opt" data-act="pjax" role="switch" aria-checked="true"><span class="sw"></span><span>Не прерывать музыку при переходах</span></button>' +
           '<button class="opt" data-act="collapse" role="switch" aria-checked="true"><span class="sw"></span><span>Сворачивать кнопку в пузырёк</span></button>' +
@@ -329,13 +297,7 @@ a{color:inherit}
 
   const $ = (s) => root.querySelector(s);
   const $$ = (s) => Array.from(root.querySelectorAll(s));
-  const ui = $('.ui'), dock = $('.dock'), dockVideo = $('.dock-video'), sheet = $('.sheet'), hd = $('.hd'), list = $('.list'), tabsEl = $('.tabs');
-  const visualizer = $('.visualizer'), vizBars = Array.from(visualizer.querySelectorAll('i'));
-  let immersive = !!store.get('immersive', false), analyser = null, audioCtx = null, vizFrame = 0, captureSource = null, vizData = null, paletteToken = 0;
-  let visualPrefs = store.get('visualPrefs', {video:true,ambient:true,visualizer:true});
-  if (!visualPrefs || typeof visualPrefs !== 'object') visualPrefs = {video:true,ambient:true,visualizer:true};
-  visualPrefs = Object.assign({video:true,ambient:true,visualizer:true}, visualPrefs);
-  const reducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const ui = $('.ui'), dock = $('.dock'), sheet = $('.sheet'), hd = $('.hd'), list = $('.list'), tabsEl = $('.tabs');
   const titleEl = $('.title'), artistEl = $('.artist'), coverImg = $('.cover img');
   const curEl = $('.cur'), durEl = $('.dur'), bar = $('.bar'), fill = $('.fill'), knob = $('.knob');
   const btnShuffle = $('[data-act=shuffle]'), btnRepeat = $('[data-act=repeat]'), btnPjax = $('[data-act=pjax]'), btnCollapse = $('[data-act=collapse]');
@@ -353,13 +315,6 @@ a{color:inherit}
   function applyTheme() {
     ui.dataset.theme = theme;
     thBox.querySelectorAll('.th').forEach((b) => b.classList.toggle('on', b.dataset.th === theme));
-  }
-  function setImmersive(v) {
-    immersive = !!v;
-    ui.classList.toggle('immersive', immersive);
-    store.set('immersive', immersive);
-    const b = $('[data-act=immersive]');
-    if (b) b.setAttribute('aria-pressed', immersive ? 'true' : 'false');
   }
 
   /* ---------- треки на странице ---------- */
@@ -380,7 +335,6 @@ a{color:inherit}
         title: (n.dataset.title || '').trim() || 'Без названия',
         artist: (n.dataset.artist || '').trim(),
         cover: n.dataset.cover ? abs(n.dataset.cover) : '',
-        video: n.dataset.video ? abs(n.dataset.video) : '',
         duration: Number(n.dataset.durationValue) || 0
       });
     });
@@ -393,7 +347,7 @@ a{color:inherit}
       let title = '';
       if (n.tagName === 'A') title = (n.textContent || '').trim();
       else { const a = n.closest('audio'); title = a ? (a.getAttribute('title') || '').trim() : ''; }
-      map.set(src, { id: src, src, title: title || nameOf(src), artist: '', cover: '', video: '', duration: 0 });
+      map.set(src, { id: src, src, title: title || nameOf(src), artist: '', cover: '', duration: 0 });
     });
     return Array.from(map.values());
   }
@@ -411,7 +365,7 @@ a{color:inherit}
   const scheduleScan = () => { clearTimeout(scanT); scanT = setTimeout(syncPage, 400); };
   new MutationObserver(scheduleScan).observe(document.documentElement, { childList: true, subtree: true });
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { store.set('time', audio.currentTime || 0); stopVisualizer(); } else { scheduleScan(); applyVisualPrefs(); }
+    if (document.hidden) store.set('time', audio.currentTime || 0); else scheduleScan();
   });
 
   /* ---------- отрисовка ---------- */
@@ -539,71 +493,14 @@ a{color:inherit}
     favCur.classList.toggle('on', f);
     favCur.style.opacity = t ? '' : '.35';
   }
-  function setAmbient(t) {
-    const token = ++paletteToken, fallback=['rgba(85,120,255,.42)','rgba(220,75,170,.34)'];
-    const apply=(a,b)=>{if(token!==paletteToken)return;sheet.style.setProperty('--ambient-a',a);sheet.style.setProperty('--ambient-b',b);};
-    if(!t||!t.cover){apply(fallback[0],fallback[1]);return;}
-    const im=new Image(); im.crossOrigin='anonymous'; im.decoding='async'; im.src=t.cover;
-    im.onload=()=>{if(token!==paletteToken)return;try{
-      const c=document.createElement('canvas'),x=c.getContext('2d',{willReadFrequently:true});c.width=c.height=24;x.drawImage(im,0,0,24,24);
-      const d=x.getImageData(0,0,24,24).data;let r=0,g=0,b=0,n=0,r2=0,g2=0,b2=0,n2=0;
-      for(let i=0;i<d.length;i+=4){if(d[i+3]<80)continue;const l=(d[i]+d[i+1]+d[i+2])/3;if(l>115){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}else{r2+=d[i];g2+=d[i+1];b2+=d[i+2];n2++;}}
-      const rgb=(R,G,B,N)=>'rgba('+Math.round(R/Math.max(1,N))+','+Math.round(G/Math.max(1,N))+','+Math.round(B/Math.max(1,N))+',.48)';
-      apply(n?rgb(r,g,b,n):fallback[0],n2?rgb(r2,g2,b2,n2):fallback[1]);
-    }catch(e){apply(fallback[0],fallback[1]);}};
-    im.onerror=()=>apply(fallback[0],fallback[1]);
-  }
-  function applyVisualPrefs(){
-    dock.classList.toggle('video-off',!visualPrefs.video || reducedMotion);
-    sheet.classList.toggle('ambient-off',!visualPrefs.ambient);
-    visualizer.classList.toggle('off',!visualPrefs.visualizer || reducedMotion);
-    [['videoFx','video'],['ambientFx','ambient'],['visualizerFx','visualizer']].forEach(([a,k])=>{const b=$('[data-act='+a+']');if(b){b.querySelector('.sw').classList.toggle('on',!!visualPrefs[k]);b.setAttribute('aria-checked',String(!!visualPrefs[k]));}});
-    if(!visualPrefs.video || reducedMotion || document.hidden || isOpen || dock.classList.contains('off')) dockVideo.pause();
-    else { const p=dockVideo.play(); if(p&&p.catch)p.catch(()=>{}); }
-    if(!visualPrefs.visualizer) stopVisualizer(); else if(!audio.paused) runVisualizer();
-  }
-  function setDockVideo(t) {
-    const wanted = t && t.video ? t.video : DOCK_VIDEO;
-    if(dockVideo.getAttribute('src')!==wanted) dockVideo.src=wanted;
-    dockVideo.muted=true; dockVideo.loop=true; dockVideo.playsInline=true;
-    dock.classList.toggle('has-video',!!visualPrefs.video);
-    applyVisualPrefs();
-  }
-  function initAnalyser(){
-    if(analyser)return true;
-    try{
-      const C=window.AudioContext||window.webkitAudioContext;
-      const capture=audio.captureStream||audio.mozCaptureStream;
-      if(!C||!capture)return false;
-      const stream=capture.call(audio); if(!stream||!stream.getAudioTracks().length)return false;
-      audioCtx=new C(); analyser=audioCtx.createAnalyser(); analyser.fftSize=128; analyser.smoothingTimeConstant=.84;
-      captureSource=audioCtx.createMediaStreamSource(stream); const mute=audioCtx.createGain(); mute.gain.value=0;
-      captureSource.connect(analyser); analyser.connect(mute); mute.connect(audioCtx.destination);
-      vizData=new Uint8Array(analyser.frequencyBinCount); return true;
-    }catch(e){analyser=null;return false;}
-  }
-  function stopVisualizer(){if(vizFrame)cancelAnimationFrame(vizFrame);vizFrame=0;visualizer.classList.remove('active');}
-  function runVisualizer(){
-    if(!visualPrefs.visualizer||reducedMotion||audio.paused||document.hidden)return;
-    if(!initAnalyser()){visualizer.classList.remove('active');return;}
-    if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});
-    if(vizFrame)return; visualizer.classList.add('active');
-    const draw=()=>{if(audio.paused||document.hidden||!visualPrefs.visualizer){stopVisualizer();return;}
-      analyser.getByteFrequencyData(vizData);const step=Math.max(1,Math.floor(vizData.length/vizBars.length));
-      vizBars.forEach((el,i)=>{const v=vizData[Math.min(vizData.length-1,i*step)]/255;el.style.height=(4+v*34)+'px';el.style.opacity=(.35+v*.65).toFixed(2);});
-      vizFrame=requestAnimationFrame(draw);
-    };vizFrame=requestAnimationFrame(draw);
-  }
-
   function renderNow() {
     const t = cur();
     syncFavCur();
-    if (!t) { titleEl.textContent = 'Выберите трек'; artistEl.textContent = '\u00a0'; coverImg.hidden = true; setAmbient(null); setDockVideo(null); return; }
+    if (!t) { titleEl.textContent = 'Выберите трек'; artistEl.textContent = '\u00a0'; coverImg.hidden = true; return; }
     titleEl.textContent = t.title;
     artistEl.textContent = t.artist || '\u00a0';
     artistEl.classList.remove('err');
     if (t.cover) { coverImg.hidden = false; coverImg.src = t.cover; } else coverImg.hidden = true;
-    setAmbient(t); setDockVideo(t);
   }
   function setPlayUI() {
     const playing = !audio.paused;
@@ -642,7 +539,7 @@ a{color:inherit}
   function updateVisibility() {
     const show = !hidden && (pageTracks.length > 0 || queue.length > 0);
     dock.classList.toggle('off', !show);
-    if (show) { place(false); applyVisualPrefs(); bump(); }
+    if (show) { place(false); bump(); }
     else { clearTimeout(idleT); if (isOpen) setOpen(false); }
   }
   function setOpen(v) {
@@ -650,13 +547,11 @@ a{color:inherit}
     ui.classList.toggle('open', isOpen);
     if (isOpen) {
       clearTimeout(idleT);
-      applyVisualPrefs();
-      sheet.classList.remove('set'); gearBtn.classList.remove('on'); setImmersive(immersive);
+      sheet.classList.remove('set'); gearBtn.classList.remove('on');
       closePop();
       syncTabs(); renderList(); progress(true);
     } else {
       closePop();
-      applyVisualPrefs();
       bump();
     }
   }
@@ -876,7 +771,6 @@ a{color:inherit}
       title: String(t.title || 'Без названия').slice(0, 200),
       artist: String(t.artist || '').slice(0, 200),
       cover: String(t.cover || ''),
-      video: String(t.video || ''),
       duration: Number(t.duration) || 0
     };
   }
@@ -890,8 +784,8 @@ a{color:inherit}
       let ch = false;
       a.forEach((t, i) => {
         const n = m.get(t.id);
-        if (n && (n.src !== t.src || (n.cover && n.cover !== t.cover) || (n.video && n.video !== t.video))) {
-          a[i] = clean(Object.assign({}, t, { src: n.src, cover: n.cover || t.cover, video: n.video || t.video, duration: n.duration || t.duration }));
+        if (n && (n.src !== t.src || (n.cover && n.cover !== t.cover))) {
+          a[i] = clean(Object.assign({}, t, { src: n.src, cover: n.cover || t.cover, duration: n.duration || t.duration }));
           ch = true;
         }
       });
@@ -1064,8 +958,8 @@ a{color:inherit}
     return origPlay.apply(this, arguments);
   };
   let lastPersist = 0, lastPos = 0;
-  audio.addEventListener('play', () => { pauseForeign(); setPlayUI(); setMediaState(); setDockVideo(cur()); runVisualizer(); });
-  audio.addEventListener('pause', () => { setPlayUI(); setMediaState(); store.set('time', audio.currentTime || 0); stopVisualizer(); });
+  audio.addEventListener('play', () => { pauseForeign(); setPlayUI(); setMediaState(); });
+  audio.addEventListener('pause', () => { setPlayUI(); setMediaState(); store.set('time', audio.currentTime || 0); });
   audio.addEventListener('playing', () => { errStreak = 0; });
   audio.addEventListener('ended', () => next(true));
   audio.addEventListener('durationchange', () => { progress(false); updatePosition(); });
@@ -1162,10 +1056,6 @@ a{color:inherit}
       case 'shuffle': shuffle = !shuffle; store.set('shuffle', shuffle); applyModes(); break;
       case 'repeat': repeat = repeat === 'off' ? 'all' : repeat === 'all' ? 'one' : 'off'; store.set('repeat', repeat); applyModes(); break;
       case 'open': setOpen(true); break;
-      case 'immersive': setImmersive(!immersive); break;
-      case 'videoFx': visualPrefs.video=!visualPrefs.video; store.set('visualPrefs',visualPrefs); applyVisualPrefs(); b.querySelector('.sw').classList.toggle('on',visualPrefs.video); b.setAttribute('aria-checked',String(visualPrefs.video)); break;
-      case 'ambientFx': visualPrefs.ambient=!visualPrefs.ambient; store.set('visualPrefs',visualPrefs); applyVisualPrefs(); b.querySelector('.sw').classList.toggle('on',visualPrefs.ambient); b.setAttribute('aria-checked',String(visualPrefs.ambient)); break;
-      case 'visualizerFx': visualPrefs.visualizer=!visualPrefs.visualizer; store.set('visualPrefs',visualPrefs); applyVisualPrefs(); b.querySelector('.sw').classList.toggle('on',visualPrefs.visualizer); b.setAttribute('aria-checked',String(visualPrefs.visualizer)); break;
       case 'close': setOpen(false); break;
       case 'favcur': { const t3 = cur(); if (t3) toggleFav(t3); else toast('Сначала выберите трек'); break; }
       case 'settings': { const on = sheet.classList.toggle('set'); gearBtn.classList.toggle('on', on); if (!on) renderList(true); break; }
@@ -1320,7 +1210,7 @@ a{color:inherit}
     if (st > 1) audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = st; } catch (e) {} }, { once: true });
     setMedia(t);
   }
-  applyTheme(); setImmersive(immersive); renderNow(); applyVisualPrefs(); applyModes(); applyPjaxSwitch(); applyCollapseSwitch(); setPlayUI(); progress(true); syncTabs();
+  applyTheme(); renderNow(); applyModes(); applyPjaxSwitch(); applyCollapseSwitch(); setPlayUI(); progress(true); syncTabs();
   syncPage();
   updateVisibility();
 
