@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Spaces Float Player",
-  "version": "1.2.0",
+  "version": "1.4.0",
   "minimum_chrome_version": "111",
-  "description": "Плавающий музыкальный плеер с музыкальным дыханием и Liquid Glass интерфейсом.",
+  "description": "Плавающий музыкальный плеер с прозрачным Liquid Glass и мини-плеером Dynamic Island.",
   "content_scripts": [
     {
       "matches": [

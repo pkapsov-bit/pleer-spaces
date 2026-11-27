@@ -5,7 +5,7 @@
   'use strict';
   if (window.__fp) { window.__fp.toggle(); return; }
 
-  const VERSION = '1.2';
+  const VERSION = '1.3';
   const SIGN_TEXT = 'Автор @https';
   const SIGN_HREF = 'https://world84.spcs.bio/mysite/index/https/';
 
@@ -47,8 +47,6 @@
   let shuffle = !!store.get('shuffle', false);
   let repeat = store.get('repeat', 'off');
   let pjaxOn = store.get('pjax', true);
-  let musicBreath = store.get('musicBreath', true);
-  let audioCtx = null, analyser = null, freqData = null, sourceNode = null, breathFrame = 0, breathLevel = 0;
   const THEMES = [
     ['glass', 'Стекло', 'linear-gradient(135deg,rgba(255,255,255,.9),rgba(255,255,255,.25))'],
     ['dark', 'Тёмная', '#111'],
@@ -81,7 +79,7 @@
   const sameQueue = (a) => a.length === queue.length && sigOf(a) === sigOf(queue);
 
   /* ---------- стили ---------- */
-  const DW = 114, DH = 64, MW = 44;
+  const DW = 114, DH = 64, MW = 52, MINI_W = 224;
   const CSS = `
 :host{all:initial}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -93,9 +91,9 @@ a{color:inherit}
   --dring:conic-gradient(rgba(255,255,255,.95),rgba(255,255,255,.22),rgba(255,255,255,.8),rgba(255,255,255,.2),rgba(255,255,255,.95));
   --onbg:#fff;--ontx:#000;--bar:#fff;--swon:#4caf50;--pbg:#1f1f22;
   font:500 15px/1.3 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:var(--tx)}
-.ui[data-theme=glass]{--sbg:linear-gradient(160deg,rgba(70,70,92,.46),rgba(18,18,28,.56));--sblur:blur(30px) saturate(190%);--sbd:rgba(255,255,255,.32);
+.ui[data-theme=glass]{--sbg:linear-gradient(145deg,rgba(255,255,255,.24),rgba(205,220,255,.085) 24%,rgba(24,29,48,.19) 70%,rgba(255,255,255,.13));--sblur:blur(48px) saturate(245%) contrast(112%);--sbd:rgba(255,255,255,.48);
   --f1:rgba(255,255,255,.1);--f2:rgba(255,255,255,.2);--ln:rgba(255,255,255,.26);--mu:rgba(255,255,255,.74);
-  --disk:rgba(255,255,255,.16);--ring:var(--dring);--onbg:rgba(255,255,255,.92);--ontx:#111;--pbg:rgba(38,38,50,.95)}
+  --disk:rgba(255,255,255,.16);--ring:var(--dring);--onbg:rgba(255,255,255,.92);--ontx:#111;--pbg:rgba(38,38,50,.82)}
 .ui[data-theme=light]{--tx:#111;--mu:#5a5a66;--ac:#111;--sbg:linear-gradient(160deg,rgba(255,255,255,.88),rgba(238,238,245,.92));--sblur:blur(26px) saturate(180%);
   --sbd:rgba(0,0,0,.1);--f1:rgba(0,0,0,.06);--f2:rgba(0,0,0,.1);--ln:rgba(0,0,0,.14);--disk:#111;--diskc:#fff;
   --ring:conic-gradient(#111,#8a8a8a,#333,#aaa,#111);--onbg:#111;--ontx:#fff;--bar:#111;--pbg:#fff}
@@ -123,20 +121,33 @@ a{color:inherit}
   opacity:.9;mix-blend-mode:screen}
 .dock>button{z-index:2;position:relative}
 .dock svg{filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
-/* Audio-reactive light volume. All layers are composited and never intercept touch. */
-.breath-halo,.breath-orbit{position:absolute;pointer-events:none;z-index:-1;border-radius:inherit;opacity:0;transition:opacity .35s ease}
-.breath-halo{inset:-9px;border-radius:38px;background:radial-gradient(ellipse at 50% 50%,rgba(90,190,255,.0) 34%,rgba(94,180,255,.26) 57%,rgba(160,120,255,.19) 72%,transparent 82%);
-  filter:blur(13px);transform:scale(var(--breath-scale,1));will-change:transform,opacity;}
-.breath-orbit{inset:-4px;border:1px solid rgba(190,225,255,.38);box-shadow:0 0 0 1px rgba(180,220,255,.22),0 0 13px rgba(100,190,255,.32),inset 0 0 12px rgba(170,210,255,.12);
-  transform:scale(var(--breath-scale,1));will-change:transform,opacity,border-color}
-.dock.is-breathing .breath-halo,.dock.is-breathing .breath-orbit{opacity:var(--breath-opacity,.2)}
-.dock.is-breathing{border-color:rgba(205,235,255,.68);box-shadow:inset 0 1.4px 0 rgba(255,255,255,.78),inset 0 0 22px rgba(255,255,255,.095),0 12px 34px rgba(0,0,0,.32),0 0 18px rgba(100,180,255,.24)}
-.dock.breath-off .breath-halo,.dock.breath-off .breath-orbit{opacity:0!important}
-.dock.breath-off{box-shadow:inset 0 1.4px 0 rgba(255,255,255,.78),inset 0 0 22px rgba(255,255,255,.095),0 12px 34px rgba(0,0,0,.32)}
 .dock.snap{transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .2s,width .28s,height .28s,padding .28s}
-.dock.mini{width:${MW}px;height:${MW}px;padding:4px;justify-content:center;opacity:.82;border-radius:50%}.dock.mini .breath-halo{inset:-8px;border-radius:50%}.dock.mini .breath-orbit{inset:-4px;border-radius:50%}
-.dock.mini .mb{display:none}
-.dock.mini .pb{width:34px;height:34px;font-size:17px}
+.mini-meta{display:none;min-width:0;flex:1;align-items:center;gap:9px;padding-left:3px;overflow:hidden}
+.mini-cover{width:36px;height:36px;flex:none;object-fit:cover;border-radius:11px;background:rgba(255,255,255,.14);box-shadow:0 2px 8px rgba(0,0,0,.22)}
+.mini-title{font-size:12px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 4px rgba(0,0,0,.35);min-width:0;flex:1}
+.mini-wave{display:flex;align-items:center;justify-content:center;gap:2px;width:16px;height:22px;flex:none;opacity:.72}
+.mini-wave i{display:block;width:2px;height:6px;border-radius:2px;background:currentColor;transform:scaleY(.45);transform-origin:center;opacity:.7}
+.ui.playing .mini-wave i{animation:miniWave .72s ease-in-out infinite alternate}
+.ui.playing .mini-wave i:nth-child(2){animation-delay:-.28s}
+.ui.playing .mini-wave i:nth-child(3){animation-delay:-.5s}
+.ui.playing .mini-wave i:nth-child(4){animation-delay:-.16s}
+@keyframes miniWave{from{transform:scaleY(.4);opacity:.55}to{transform:scaleY(1.45);opacity:1}}
+.dock.mini{width:min(${MINI_W}px,calc(100vw - 16px));height:${MW}px;padding:6px 9px;gap:9px;justify-content:space-between;opacity:1;border-radius:999px;
+  color:#fff;background:linear-gradient(145deg,rgba(255,255,255,.24),rgba(255,255,255,.075) 28%,rgba(8,10,18,.76) 72%,rgba(255,255,255,.13)),rgba(9,11,18,.72);
+  border:1px solid rgba(255,255,255,.42);box-shadow:inset 0 1.2px 0 rgba(255,255,255,.72),inset 0 0 0 1px rgba(255,255,255,.08),0 10px 28px rgba(0,0,0,.38),0 2px 8px rgba(0,0,0,.2);
+  -webkit-backdrop-filter:blur(34px) saturate(220%);backdrop-filter:blur(34px) saturate(220%)}
+.dock.mini::before{inset:1px 12px auto;height:45%;border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.48),rgba(255,255,255,.10) 65%,transparent)}
+.dock.mini::after{background:radial-gradient(ellipse at 12% 0%,rgba(255,255,255,.28),transparent 40%),linear-gradient(110deg,transparent 32%,rgba(255,255,255,.11) 50%,transparent 68%)}
+.dock.mini .mini-meta{display:flex;gap:9px;padding-left:2px}
+.dock.mini .mb{display:none!important}
+.dock.mini .mini-cover{width:34px;height:34px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.3),inset 0 0 0 1px rgba(255,255,255,.22)}
+.dock.mini .mini-title{font-size:12px;line-height:1.15;letter-spacing:-.01em}
+.dock.mini .mini-wave{width:17px;margin-left:auto;color:#a8f0cf}
+.dock.mini .pb{width:34px;height:34px;flex:none;font-size:16px;border-radius:50%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.24)}
+.dock.mini .pb .ring{inset:-2px;opacity:.75}
+.dock.mini .pb .disk{inset:2px;background:rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
+.dock.mini .pb svg{width:15px;height:15px}
+
 .dock.drag{box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 14px 34px rgba(0,0,0,.4);opacity:.94}
 .open .dock{opacity:0;pointer-events:none}
 .mb{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:22px;color:#fff;
@@ -158,13 +169,17 @@ a{color:inherit}
 
 .scrim{position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .2s;touch-action:none}
 .open .scrim{opacity:1;pointer-events:auto}
-.sheet{position:fixed;left:0;right:0;bottom:0;z-index:2147483647;margin:0 auto;width:100%;max-width:480px;
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:2147483647;margin:0 auto;width:100%;max-width:480px;isolation:isolate;overflow:hidden;
   min-height:64vh;min-height:64dvh;max-height:82vh;max-height:82dvh;display:flex;flex-direction:column;gap:10px;
   padding:6px 16px calc(12px + env(safe-area-inset-bottom,0px));border-radius:22px 22px 0 0;
   background:var(--sbg);-webkit-backdrop-filter:var(--sblur);backdrop-filter:var(--sblur);color:var(--tx);
-  border:1px solid var(--sbd);border-bottom:0;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 -10px 40px rgba(0,0,0,.5);
+  background-color:rgba(20,23,36,.22);
+  
+  border:1px solid var(--sbd);border-bottom:0;box-shadow:inset 0 1.5px 0 rgba(255,255,255,.72),inset 0 0 0 1px rgba(255,255,255,.10),inset 0 18px 36px rgba(255,255,255,.055),0 -14px 48px rgba(0,0,0,.32);
   transform:translateY(105%);visibility:hidden;
   transition:transform .28s cubic-bezier(.2,.8,.2,1),visibility 0s .28s}
+.sheet::before{content:'';position:absolute;inset:0 0 auto;height:42%;pointer-events:none;z-index:-1;background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,.045) 48%,transparent);opacity:.9}
+.sheet::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:-1;background:radial-gradient(ellipse at 8% 0%,rgba(255,255,255,.22),transparent 38%),radial-gradient(ellipse at 100% 72%,rgba(160,190,255,.12),transparent 48%);mix-blend-mode:screen}
 .open .sheet{transform:none;visibility:visible;transition:transform .28s cubic-bezier(.2,.8,.2,1),visibility 0s}
 
 .hd{position:relative;display:flex;align-items:center;justify-content:space-between;min-height:48px;padding-top:8px;touch-action:none}
@@ -212,9 +227,8 @@ a{color:inherit}
 .row .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .empty{padding:18px 8px;color:var(--mu);text-align:center}
 
-.themes{display:flex;gap:8px;overflow-x:auto;overscroll-behavior:contain;padding:2px 0;scrollbar-width:none}
-.themes::-webkit-scrollbar{display:none}
-.th{flex:none;display:flex;align-items:center;gap:7px;height:36px;padding:0 13px 0 9px;border-radius:18px;background:var(--f1);
+.themes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;overflow:visible;padding:2px 0 8px;flex:none;position:relative;z-index:4;isolation:isolate}
+.th{display:flex;align-items:center;gap:9px;min-width:0;width:100%;height:46px;padding:0 12px;border-radius:16px;background:var(--f1);position:relative;z-index:3;touch-action:manipulation;pointer-events:auto;cursor:pointer;
   border:1px solid transparent;color:var(--mu);font-size:13px}
 .th i{width:16px;height:16px;border-radius:50%;border:1px solid var(--ln);background:var(--c)}
 .th.on{border-color:var(--ac);color:var(--tx)}
@@ -261,7 +275,7 @@ a{color:inherit}
 .pit{display:block;width:100%;min-height:50px;padding:0 14px;text-align:left;font-size:16px;color:var(--tx);border-radius:12px}
 .pit:active{background:var(--f2)}
 .pit.bad{color:#ff6b6b}
-@media (prefers-reduced-motion:reduce){.playing .ring{animation:none}.sheet,.dock.snap{transition:none}.breath-halo,.breath-orbit{filter:none;transition:none}}
+@media (prefers-reduced-motion:reduce){.playing .ring{animation:none}.ui.playing .mini-wave i{animation:none;transform:scaleY(.75)}.sheet,.dock.snap{transition:none}}
 `;
 
   /* ---------- DOM ---------- */
@@ -273,7 +287,7 @@ a{color:inherit}
     '<div class="ui">' +
       '<div class="nav"></div>' +
       '<div class="dock off">' +
-        '<span class="breath-orbit" aria-hidden="true"></span><span class="breath-halo" aria-hidden="true"></span>' +
+        '<div class="mini-meta"><img class="mini-cover" alt=""><span class="mini-title">Музыка</span><span class="mini-wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span></div>' +
         '<button class="pb" data-act="play" aria-label="Играть / пауза"><span class="ring"></span><span class="disk"></span></button>' +
         '<button class="mb" data-act="open" aria-label="Меню плеера">' + IC.dots + '</button>' +
       '</div>' +
@@ -302,8 +316,6 @@ a{color:inherit}
           '<div class="sh">Поведение</div>' +
           '<button class="opt" data-act="pjax" role="switch" aria-checked="true"><span class="sw"></span><span>Не прерывать музыку при переходах</span></button>' +
           '<button class="opt" data-act="collapse" role="switch" aria-checked="true"><span class="sw"></span><span>Сворачивать кнопку в пузырёк</span></button>' +
-          '<button class="opt" data-act="breath" role="switch" aria-checked="true"><span class="sw"></span><span>Музыкальное дыхание кнопки</span></button>' +
-          '<div class="hint breath-hint">Точная реакция на частоты доступна для аудио с разрешённым доступом Web Audio. Если источник закрывает доступ (CORS), включается мягкая визуальная пульсация без анализа битов.</div>' +
           '<div class="sh">Избранное и плейлисты</div>' +
           '<div class="btns"><button class="bt" data-act="export">Экспорт в файл</button><button class="bt" data-act="import">Импорт из файла</button></div>' +
           '<button class="bt" data-act="hide">Скрыть плеер до перезагрузки страницы</button>' +
@@ -320,7 +332,7 @@ a{color:inherit}
   const ui = $('.ui'), dock = $('.dock'), sheet = $('.sheet'), hd = $('.hd'), list = $('.list'), tabsEl = $('.tabs');
   const titleEl = $('.title'), artistEl = $('.artist'), coverImg = $('.cover img');
   const curEl = $('.cur'), durEl = $('.dur'), bar = $('.bar'), fill = $('.fill'), knob = $('.knob');
-  const btnShuffle = $('[data-act=shuffle]'), btnRepeat = $('[data-act=repeat]'), btnPjax = $('[data-act=pjax]'), btnCollapse = $('[data-act=collapse]'), btnBreath = $('[data-act=breath]');
+  const btnShuffle = $('[data-act=shuffle]'), btnRepeat = $('[data-act=repeat]'), btnPjax = $('[data-act=pjax]'), btnCollapse = $('[data-act=collapse]');
   const qw = $('.qw'), qInp = $('.q'), pop = $('.pop'), fileInp = $('.file'), favCur = $('[data-act=favcur]'), gearBtn = $('[data-act=settings]');
   coverImg.onerror = () => { coverImg.hidden = true; };
   const thBox = $('.themes');
@@ -330,6 +342,12 @@ a{color:inherit}
     b.dataset.th = t[0];
     b.style.setProperty('--c', t[2]);
     b.append(document.createElement('i'), t[1]);
+    b.type = 'button';
+    b.setAttribute('aria-label', 'Тема: ' + t[1]);
+    b.addEventListener('click', (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      theme = t[0]; store.set('theme', theme); applyTheme();
+    });
     thBox.appendChild(b);
   });
   function applyTheme() {
@@ -516,8 +534,10 @@ a{color:inherit}
   function renderNow() {
     const t = cur();
     syncFavCur();
-    if (!t) { titleEl.textContent = 'Выберите трек'; artistEl.textContent = '\u00a0'; coverImg.hidden = true; return; }
+    if (!t) { titleEl.textContent = 'Выберите трек'; artistEl.textContent = '\u00a0'; coverImg.hidden = true; $('.mini-title').textContent = 'Музыка'; $('.mini-cover').removeAttribute('src'); return; }
     titleEl.textContent = t.title;
+    $('.mini-title').textContent = t.title || 'Музыка';
+    if (t.cover) $('.mini-cover').src = t.cover; else $('.mini-cover').removeAttribute('src');
     artistEl.textContent = t.artist || '\u00a0';
     artistEl.classList.remove('err');
     if (t.cover) { coverImg.hidden = false; coverImg.src = t.cover; } else coverImg.hidden = true;
@@ -548,84 +568,6 @@ a{color:inherit}
   function applyCollapseSwitch() {
     btnCollapse.querySelector('.sw').classList.toggle('on', autoCollapse);
     btnCollapse.setAttribute('aria-checked', autoCollapse ? 'true' : 'false');
-  }
-  function applyBreathSwitch() {
-    btnBreath.querySelector('.sw').classList.toggle('on', musicBreath);
-    btnBreath.setAttribute('aria-checked', musicBreath ? 'true' : 'false');
-    dock.classList.toggle('breath-off', !musicBreath);
-    dock.classList.toggle('is-breathing', musicBreath && !audio.paused);
-    if (musicBreath && !audio.paused) startBreathLoop();
-    else if (!musicBreath) {
-      dock.style.setProperty('--breath', '0');
-      dock.style.setProperty('--breath-opacity', '.0');
-      dock.style.setProperty('--breath-scale', '1');
-    }
-  }
-  function initAnalyser() {
-    if (analyser) return true;
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return false;
-    try {
-      const track = cur();
-      if (!track || !track.src) return false;
-      const srcUrl = new URL(track.src, location.href);
-      /* Connecting a media element to Web Audio can mute a non-CORS source.
-         Only attach when every track in the active queue is same-origin, so a
-         normal mixed-origin queue keeps its native playback path untouched. */
-      if (srcUrl.origin !== location.origin || queue.some((item) => { try { return new URL(item.src, location.href).origin !== location.origin; } catch (e) { return true; } })) return false;
-      audioCtx = audioCtx || new AC();
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 1024;
-      analyser.smoothingTimeConstant = .72;
-      analyser.minDecibels = -90;
-      analyser.maxDecibels = -20;
-      freqData = new Uint8Array(analyser.frequencyBinCount);
-      if (!sourceNode) sourceNode = audioCtx.createMediaElementSource(audio);
-      sourceNode.connect(analyser);
-      analyser.connect(audioCtx.destination);
-      return true;
-    } catch (e) {
-      analyser = null; freqData = null;
-      return false;
-    }
-  }
-  function startBreathLoop() {
-    if (breathFrame || !musicBreath) return;
-    dock.classList.add('is-breathing');
-    const tick = () => {
-      breathFrame = 0;
-      if (!musicBreath) {
-        dock.classList.remove('is-breathing');
-        dock.style.setProperty('--breath', '0');
-        dock.style.setProperty('--breath-opacity', '.0');
-        dock.style.setProperty('--breath-scale', '1');
-        return;
-      }
-      const active = !audio.paused && !document.hidden;
-      let target = 0;
-      if (active && analyser && freqData && audioCtx && audioCtx.state === 'running') {
-        analyser.getByteFrequencyData(freqData);
-        let bass = 0, mids = 0, highs = 0;
-        for (let i = 1; i <= 5; i++) bass += freqData[i];
-        for (let i = 6; i <= 35; i++) mids += freqData[i];
-        for (let i = 36; i <= 220; i++) highs += freqData[i];
-        bass /= 5 * 255; mids /= 30 * 255; highs /= 185 * 255;
-        target = Math.min(1, bass * .68 + mids * .23 + highs * .09);
-      } else if (active) {
-        /* Graceful non-spectral fallback: ambient motion, never represented as
-           frequency analysis. Actual beat sync requires same-origin/CORS access. */
-        const t = audio.currentTime || 0;
-        target = .13 + (Math.sin(t * 2.7) * .5 + .5) * .12;
-      }
-      const speed = target > breathLevel ? .28 : .085;
-      breathLevel += (target - breathLevel) * speed;
-      dock.style.setProperty('--breath', String(Math.max(0, Math.min(1, breathLevel))));
-      dock.style.setProperty('--breath-opacity', String(Math.max(.12, Math.min(1, .12 + breathLevel * .88))));
-      dock.style.setProperty('--breath-scale', String(1 + breathLevel * .17));
-      if (active || breathLevel > .008) breathFrame = requestAnimationFrame(tick);
-      else dock.classList.remove('is-breathing');
-    };
-    breathFrame = requestAnimationFrame(tick);
   }
   let toastT = 0;
   function toast(msg) {
@@ -658,7 +600,8 @@ a{color:inherit}
   function calcXY() {
     const W = innerWidth, H = innerHeight, m = 8;
     const h = collapsed ? MW : DH;
-    const x = collapsed ? (pos.side === 'l' ? -10 : W - MW + 10) : (pos.side === 'l' ? m : W - DW - m);
+    const miniW = Math.min(MINI_W, W - m * 2);
+    const x = collapsed ? (pos.side === 'l' ? m : W - miniW - m) : (pos.side === 'l' ? m : W - DW - m);
     const y0 = Math.round(Math.min(Math.max(pos.y * (H - DH), m), H - DH - m));
     return { x, y: y0 + Math.round((DH - h) / 2) };
   }
@@ -700,7 +643,10 @@ a{color:inherit}
   dock.addEventListener('pointerdown', (e) => {
     if (e.button) return;
     clearTimeout(idleT);
-    if (collapsed) { blockClicks(); dg = null; setCollapsed(false); return; }
+    if (collapsed) {
+      if (e.target.closest && e.target.closest('[data-act=play]')) { dg = null; return; }
+      blockClicks(); dg = null; setCollapsed(false); return;
+    }
     const p = calcXY();
     dg = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: p.x, oy: p.y, x: p.x, y: p.y, dx: 0, mode: '', onPlay: !!(e.target.closest && e.target.closest('.pb')) };
     clearTimeout(lpT);
@@ -790,9 +736,6 @@ a{color:inherit}
   function persistQueue() { store.set('queue', queue); store.set('idx', idx); }
   function playSafe() {
     armed = true;
-    if (!analyser) initAnalyser();
-    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().then(() => { if (musicBreath) startBreathLoop(); }).catch(() => {});
-    if (musicBreath) startBreathLoop();
     const p = audio.play();
     if (p && p.catch) p.catch((err) => {
       if (err && err.name === 'NotAllowedError') toast('Нажмите ▶, чтобы запустить');
@@ -803,9 +746,7 @@ a{color:inherit}
     if (!t) return;
     idx = i;
     audio.preload = autoplay ? 'auto' : 'metadata';
-    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
     audio.src = t.src;
-    if (!analyser) initAnalyser();
     if (startAt) audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = startAt; } catch (e) {} }, { once: true });
     setMedia(t);
     if (autoplay) playSafe();
@@ -1061,10 +1002,9 @@ a{color:inherit}
     return origPlay.apply(this, arguments);
   };
   let lastPersist = 0, lastPos = 0;
-  audio.addEventListener('play', () => { pauseForeign(); setPlayUI(); setMediaState(); if (musicBreath) { if (!analyser) initAnalyser(); if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {}); startBreathLoop(); } });
-  audio.addEventListener('pause', () => { setPlayUI(); setMediaState(); store.set('time', audio.currentTime || 0); if (musicBreath) startBreathLoop(); });
+  audio.addEventListener('play', () => { pauseForeign(); setPlayUI(); setMediaState(); });
+  audio.addEventListener('pause', () => { setPlayUI(); setMediaState(); store.set('time', audio.currentTime || 0); });
   audio.addEventListener('playing', () => { errStreak = 0; });
-  document.addEventListener('visibilitychange', () => { if (musicBreath && !audio.paused && !document.hidden) startBreathLoop(); });
   audio.addEventListener('ended', () => next(true));
   audio.addEventListener('durationchange', () => { progress(false); updatePosition(); });
   audio.addEventListener('timeupdate', () => {
@@ -1120,7 +1060,7 @@ a{color:inherit}
     if (T.closest('.panel')) return;
     if (T.closest('.pop')) { closePop(); return; }
     if (T.closest('.sig')) { e.preventDefault(); openAuthor(); return; }
-    if (collapsed && T.closest('.dock')) { setCollapsed(false); return; }
+    if (collapsed && T.closest('.dock') && !T.closest('[data-act=play]')) { setCollapsed(false); return; }
     const hb = T.closest('[data-heart]');
     if (hb) { const t = listArr()[Number(hb.closest('.row').dataset.i)]; if (t) toggleFav(t); return; }
     const mo = T.closest('[data-more]');
@@ -1133,8 +1073,6 @@ a{color:inherit}
     if (pr) { plView = pr.dataset.pl; qstr = ''; qInp.value = ''; syncTabs(); renderList(); list.scrollTop = 0; return; }
     const row = T.closest('.row');
     if (row) { rowClick(Number(row.dataset.i)); return; }
-    const th = T.closest('[data-th]');
-    if (th) { theme = th.dataset.th; store.set('theme', theme); applyTheme(); return; }
     const tb = T.closest('[data-tab]');
     if (tb) { tab = tb.dataset.tab; plView = null; qstr = ''; qInp.value = ''; syncTabs(); renderList(); return; }
     const b = T.closest('[data-act]');
@@ -1164,7 +1102,6 @@ a{color:inherit}
       case 'favcur': { const t3 = cur(); if (t3) toggleFav(t3); else toast('Сначала выберите трек'); break; }
       case 'settings': { const on = sheet.classList.toggle('set'); gearBtn.classList.toggle('on', on); if (!on) renderList(true); break; }
       case 'pjax': pjaxOn = !pjaxOn; store.set('pjax', pjaxOn); applyPjaxSwitch(); break;
-      case 'breath': musicBreath = !musicBreath; store.set('musicBreath', musicBreath); applyBreathSwitch(); break;
       case 'collapse':
         autoCollapse = !autoCollapse;
         store.set('collapse', autoCollapse);
@@ -1311,13 +1248,11 @@ a{color:inherit}
   if (cur()) {
     const t = cur(), st = Number(store.get('time', 0)) || 0;
     audio.preload = 'metadata';
-    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
     audio.src = t.src;
-    if (!analyser) initAnalyser();
     if (st > 1) audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = st; } catch (e) {} }, { once: true });
     setMedia(t);
   }
-  applyTheme(); applyBreathSwitch(); renderNow(); applyModes(); applyPjaxSwitch(); applyCollapseSwitch(); setPlayUI(); progress(true); syncTabs();
+  applyTheme(); renderNow(); applyModes(); applyPjaxSwitch(); applyCollapseSwitch(); setPlayUI(); progress(true); syncTabs();
   syncPage();
   updateVisibility();
 
