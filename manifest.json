@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Spaces Float Player",
+  "version": "1.0",
+  "minimum_chrome_version": "111",
+  "description": "Плавающий плеер для музыки на Spaces: кнопка пауза/плей и меню на трёх точках. Музыка не прерывается при переходах.",
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.spcs.me/*",
+        "*://*.spcs.bio/*",
+        "*://*.spaces.ru/*",
+        "*://*.spaces.me/*",
+        "*://*.spaces.im/*"
+      ],
+      "js": ["float-player.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Spaces Float Player — установка</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;background:#0b0b0b;color:#eee;font:16px/1.5 system-ui,-apple-system,Roboto,Arial,sans-serif}
+  main{max-width:560px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:24px;margin:8px 0 4px}
+  h2{font-size:18px;margin:28px 0 8px}
+  p,li{color:#c9c9c9}
+  ol{padding-left:22px}
+  li{margin:6px 0}
+  button,.btn{display:block;width:100%;min-height:52px;margin:10px 0;padding:12px 16px;border:0;border-radius:14px;
+    background:#fff;color:#000;font:700 16px system-ui,Arial,sans-serif;text-align:center;text-decoration:none}
+  button.alt,.btn.alt{background:#222;color:#fff;border:1px solid #444}
+  .ok{color:#7bd88f;min-height:24px;font-weight:600}
+  code{background:#1c1c1c;padding:2px 6px;border-radius:6px;color:#fff}
+  .note{padding:12px 14px;border-radius:12px;background:#1a1a1a;border:1px solid #333;font-size:14px}
+  textarea{width:100%;height:90px;background:#111;color:#bbb;border:1px solid #333;border-radius:10px;font:12px monospace}
+</style>
+</head>
+<body>
+<main>
+  <h1>Spaces Float Player</h1>
+  <p>Плавающий плеер: кнопка ▶/⏸ и кнопка с тремя точками, которая раскрывает меню (треки, перемотка, режимы). Работает в обычном Chrome на телефоне.</p>
+
+  <h2>1. Скопируйте закладку</h2>
+  <button id="b1">Скопировать закладку (короткая)</button>
+  <button id="b2" class="alt">Скопировать автономную закладку</button>
+  <div class="ok" id="msg"></div>
+  <p class="note">Короткая подгружает плеер с этого сайта. Если на нужном сайте после запуска ничего не появилось (сайт запрещает внешние скрипты), используйте автономную: весь код лежит внутри закладки.</p>
+
+  <h2>2. Создайте закладку в Chrome</h2>
+  <ol>
+    <li>Откройте любую страницу, нажмите <b>⋮</b> → <b>☆ (Добавить закладку)</b>.</li>
+    <li>Нажмите на созданную закладку для редактирования (или «Изменить»).</li>
+    <li>В поле <b>Название</b> впишите <code>плеер</code>.</li>
+    <li>В поле <b>URL</b> вставьте скопированный код (он начинается с <code>javascript:</code>) и сохраните.</li>
+  </ol>
+
+  <h2>3. Запуск на сайте с музыкой</h2>
+  <ol>
+    <li>Откройте страницу с треками.</li>
+    <li>В адресной строке начните вводить <code>плеер</code> и выберите закладку из подсказок (значок ☆).</li>
+    <li>Появится плавающая кнопка. Её можно перетащить, она прилипает к краю.</li>
+  </ol>
+  <p>Повторный запуск закладки скрывает или показывает плеер. Пока плеер на странице, переходы по ссылкам сайта не прерывают музыку.</p>
+
+  <a class="btn alt" href="demo.html">Проверить на демо-странице</a>
+
+  <h2>Если копирование не сработало</h2>
+  <textarea id="ta" readonly placeholder="Нажмите одну из кнопок выше, код появится здесь"></textarea>
+</main>
+<script>
+(function () {
+  var base = new URL('.', location.href).href;
+  var esc = function (c) { return c.replace(/%/g, '%25').replace(/#/g, '%23'); };
+  var loader = "javascript:" + esc("(function(){if(window.__fp){window.__fp.toggle();return;}var s=document.createElement('script');s.src='" + base +
+    "float-player.js?v='+Date.now();s.onerror=function(){alert('Сайт не разрешает внешние скрипты. Используйте автономную закладку.');};document.documentElement.appendChild(s);})();");
+  var msg = document.getElementById('msg'), ta = document.getElementById('ta');
+  function copy(text, okText) {
+    ta.value = text;
+    var done = function () { msg.textContent = okText; };
+    var fallback = function () {
+      ta.removeAttribute('readonly'); ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
+      try { if (document.execCommand('copy')) done(); else msg.textContent = 'Скопируйте текст из поля ниже вручную'; }
+      catch (e) { msg.textContent = 'Скопируйте текст из поля ниже вручную'; }
+      ta.setAttribute('readonly', '');
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
+  }
+  document.getElementById('b1').onclick = function () { copy(loader, 'Короткая закладка скопирована ✓'); };
+  document.getElementById('b2').onclick = function () {
+    msg.textContent = 'Загрузка…';
+    fetch('float-player.min.js').then(function (r) { return r.text(); }).then(function (t) {
+      copy('javascript:' + esc(t.trim()), 'Автономная закладка скопирована ✓');
+    }).catch(function () { msg.textContent = 'Не удалось получить код. Обновите страницу.'; });
+  };
+})();
+</script>
+</body>
+</html>
