@@ -2,11 +2,8 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b0b0b">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon-192.png">
-<title>T-PLAYER 2.1 — Android Edition</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Spaces Float Player — установка</title>
 <style>
   :root{color-scheme:dark}
   body{margin:0;background:#0b0b0b;color:#eee;font:16px/1.5 system-ui,-apple-system,Roboto,Arial,sans-serif}
@@ -27,19 +24,16 @@
 </head>
 <body>
 <main>
-  <h1>T-PLAYER 2.1</h1>
-  <p>Android-first музыкальный плеер прямо поверх мобильного сайта: аудиореактивные волны, Liquid Glass full-screen, эквалайзер, Bass Boost, crossfade, Smart Library, скорость, таймер сна, история, очередь и плейлисты. Работает в обычном Chrome через закладку.</p>
+  <h1>Spaces Float Player</h1>
+  <p>Плавающий плеер: кнопка ▶/⏸ и кнопка с тремя точками, которая раскрывает меню (треки, перемотка, режимы). Работает в обычном Chrome на телефоне.</p>
 
-  <h2>1. Установка T-PLAYER</h2>
-  <button id="install" class="alt" hidden>Установить T-PLAYER на Android</button>
-  <p class="note">Установка добавляет эту страницу как PWA. Для управления музыкой на сторонних сайтах всё равно используется закладка ниже.</p>
-  <h2>2. Скопируйте закладку</h2>
+  <h2>1. Скопируйте закладку</h2>
   <button id="b1">Скопировать закладку (короткая)</button>
   <button id="b2" class="alt">Скопировать автономную закладку</button>
   <div class="ok" id="msg"></div>
   <p class="note">Короткая подгружает плеер с этого сайта. Если на нужном сайте после запуска ничего не появилось (сайт запрещает внешние скрипты), используйте автономную: весь код лежит внутри закладки.</p>
 
-  <h2>3. Создайте закладку в Chrome</h2>
+  <h2>2. Создайте закладку в Chrome</h2>
   <ol>
     <li>Откройте любую страницу, нажмите <b>⋮</b> → <b>☆ (Добавить закладку)</b>.</li>
     <li>Нажмите на созданную закладку для редактирования (или «Изменить»).</li>
@@ -47,7 +41,7 @@
     <li>В поле <b>URL</b> вставьте скопированный код (он начинается с <code>javascript:</code>) и сохраните.</li>
   </ol>
 
-  <h2>4. Запуск на сайте с музыкой</h2>
+  <h2>3. Запуск на сайте с музыкой</h2>
   <ol>
     <li>Откройте страницу с треками.</li>
     <li>В адресной строке начните вводить <code>плеер</code> и выберите закладку из подсказок (значок ☆).</li>
@@ -56,7 +50,6 @@
   <p>Повторный запуск закладки скрывает или показывает плеер. Пока плеер на странице, переходы по ссылкам сайта не прерывают музыку.</p>
 
   <a class="btn alt" href="demo.html">Проверить на демо-странице</a>
-  <p class="note">В меню доступны полноэкранный режим, эквалайзер и Bass Boost для same-origin треков, crossfade, Smart Library, скорость воспроизведения, таймер сна и история. Аудиореактивность зависит от поддержки captureStream() браузером; при отсутствии поддержки работает анимированный fallback.</p>
 
   <h2>Если копирование не сработало</h2>
   <textarea id="ta" readonly placeholder="Нажмите одну из кнопок выше, код появится здесь"></textarea>
@@ -79,11 +72,6 @@
     };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
   }
-  var installPrompt = null, installBtn = document.getElementById('install');
-  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); installPrompt = e; installBtn.hidden = false; });
-  installBtn.addEventListener('click', function () { if (!installPrompt) return; installPrompt.prompt(); installPrompt.userChoice.then(function () { installPrompt = null; installBtn.hidden = true; }); });
-  window.addEventListener('appinstalled', function () { installBtn.hidden = true; msg.textContent = 'T-PLAYER установлен ✓'; });
-  if ('serviceWorker' in navigator && location.protocol === 'https:') window.addEventListener('load', function () { navigator.serviceWorker.register('./service-worker.js').catch(function () {}); });
   document.getElementById('b1').onclick = function () { copy(loader, 'Короткая закладка скопирована ✓'); };
   document.getElementById('b2').onclick = function () {
     msg.textContent = 'Загрузка…';

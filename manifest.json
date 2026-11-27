@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "T-PLAYER 2.1 — Android Edition",
-  "version": "2.1.0",
+  "name": "Spaces Float Player",
+  "version": "1.0",
   "minimum_chrome_version": "111",
-  "description": "Floating Android-first music player with Liquid Glass UI, Smart Library, audio-reactive waves, equalizer, Bass Boost and crossfade.",
+  "description": "Плавающий плеер для музыки на Spaces: кнопка пауза/плей и меню на трёх точках. Музыка не прерывается при переходах.",
   "content_scripts": [
     {
       "matches": [
@@ -13,9 +13,7 @@
         "*://*.spaces.me/*",
         "*://*.spaces.im/*"
       ],
-      "js": [
-        "float-player.js"
-      ],
+      "js": ["float-player.js"],
       "run_at": "document_idle",
       "world": "MAIN"
     }

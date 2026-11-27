@@ -1,11 +1,11 @@
-/*! T-PLAYER 2.1 — плавающий плеер для мобильных сайтов.
+/*! Spaces Float Player 1.0 — плавающий плеер для мобильных сайтов.
    Основа и идея: Spaces Cyber Player © @https (https://spcs.me). Подпись автора оставлена в меню плеера.
    Работает прямо в странице: без chrome.* API, поэтому подходит и для закладки в обычном Chrome на телефоне. */
 (function () {
   'use strict';
   if (window.__fp) { window.__fp.toggle(); return; }
 
-  const VERSION = '2.1.0';
+  const VERSION = '1.0';
   const SIGN_TEXT = 'Автор @https';
   const SIGN_HREF = 'https://world84.spcs.bio/mysite/index/https/';
 
@@ -41,133 +41,7 @@
 
   /* ---------- состояние ---------- */
   const audio = new Audio();
-  const audioNext = new Audio();
-  audio.preload = 'auto'; audioNext.preload = 'auto'; audioNext.volume = 0;
-  let crossfadeSeconds = Math.max(0, Math.min(8, Number(store.get('crossfade', 4)) || 0));
-  let crossfadeRAF = 0, crossfadeState = null, crossfadeArmedFor = '', crossfadeReadyTrack = null;
-  let dspContext = null, dspSource = null, dspSourceNext = null, dspFilters = [], dspEnabled = false, dspLocked = false;
-  let eqGains = store.get('eqGains', [0, 0, 0, 0, 0]); if (!Array.isArray(eqGains) || eqGains.length !== 5) eqGains = [0,0,0,0,0];
-  let bassBoost = !!store.get('bassBoost', false);
-  let keepScreenOn = !!store.get('keepScreenOn', false), wakeLock = null;
-  function cancelCrossfade(restore) {
-    if (crossfadeRAF) cancelAnimationFrame(crossfadeRAF); crossfadeRAF = 0;
-    audioNext.pause(); audioNext.removeAttribute('src'); audioNext.load(); audioNext.volume = 0;
-    if (restore) audio.volume = 1;
-    crossfadeState = null; crossfadeArmedFor = ''; crossfadeReadyTrack = null;
-  }
-  function isLocalTrack(t) { try { return new URL(t.src, location.href).origin === location.origin; } catch (e) { return false; } }
-  function applyEQ() {
-    if (!dspFilters.length) return;
-    dspFilters.forEach((f, i) => { f.gain.value = dspEnabled ? (Number(eqGains[i]) || 0) : 0; });
-    if (dspEnabled) dspFilters[0].gain.value = (Number(eqGains[0]) || 0) + (bassBoost ? 7 : 0);
-  }
-  async function setWakeLock(on) {
-    keepScreenOn = !!on; store.set('keepScreenOn', keepScreenOn);
-    if (!keepScreenOn) { if (wakeLock) { try { await wakeLock.release(); } catch (e) {} wakeLock = null; } syncWakeUI(); return; }
-    if (!('wakeLock' in navigator)) { toast('Браузер не поддерживает удержание экрана'); keepScreenOn = false; store.set('keepScreenOn', false); syncWakeUI(); return; }
-    if (document.visibilityState !== 'visible' || audio.paused) return;
-    try { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } catch (e) { toast('Не удалось удержать экран включённым'); }
-    syncWakeUI();
-  }
-  function syncWakeUI() { const b = $('[data-act=wake]'); if (b) { const sw = b.querySelector('.sw'); if (sw) sw.classList.toggle('on', keepScreenOn); b.setAttribute('aria-checked', String(keepScreenOn)); } }
-  function enableDSP() {
-    if (!cur() || !queue.every(isLocalTrack)) { toast('Эквалайзер доступен только для очереди с аудио того же сайта'); return false; }
-    if (dspLocked && !dspSource) { toast('Аудиообработка недоступна в этом браузере'); return false; }
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) { toast('Web Audio не поддерживается браузером'); return false; }
-    try {
-      if (!dspSource) {
-        dspContext = new AC(); dspSource = dspContext.createMediaElementSource(audio); dspSourceNext = dspContext.createMediaElementSource(audioNext); dspLocked = true;
-        dspSource.connect(dspContext.destination); dspSourceNext.connect(dspContext.destination);
-        const freqs = [90, 250, 1000, 4000, 12000];
-        dspFilters = freqs.map((freq, i) => { const f = dspContext.createBiquadFilter(); f.type = i === 0 ? 'lowshelf' : i === 4 ? 'highshelf' : 'peaking'; f.frequency.value = freq; f.Q.value = 1; return f; });
-        dspSource.connect(dspFilters[0]); dspSourceNext.connect(dspFilters[0]); for (let i = 0; i < dspFilters.length - 1; i++) dspFilters[i].connect(dspFilters[i + 1]);
-        dspFilters[dspFilters.length - 1].connect(dspContext.destination); dspSource.disconnect(dspContext.destination); dspSourceNext.disconnect(dspContext.destination);
-      }
-      if (dspContext.state === 'suspended') dspContext.resume().catch(() => {});
-      dspEnabled = true; applyEQ(); return true;
-    } catch (e) { if (dspSource && dspContext) { try { dspSource.connect(dspContext.destination); if (dspSourceNext) dspSourceNext.connect(dspContext.destination); } catch (err) {} } toast('Не удалось включить аудиообработку'); return false; }
-  }
-  function setDSP(on) {
-    if (on && !enableDSP()) { dspEnabled = false; syncDSPUI(); return; }
-    dspEnabled = !!on; if (dspFilters.length) { dspFilters.forEach((f) => { f.gain.value = 0; }); if (dspEnabled) applyEQ(); }
-    syncDSPUI(); store.set('dspEnabled', dspEnabled);
-  }
-  function syncDSPUI() { const b = $('[data-act=dsp]'); if (b) { b.classList.toggle('on', dspEnabled); b.textContent = dspEnabled ? 'Аудиообработка включена' : 'Включить аудиообработку'; } const bb = $('[data-act=bass]'); if (bb) { bb.classList.toggle('on', bassBoost); bb.setAttribute('aria-checked', String(bassBoost)); } }
-  function beginCrossfade() {
-    if (!crossfadeState) return;
-    const st = crossfadeState, started = performance.now(), duration = st.duration;
-    const tick = (now) => {
-      if (!crossfadeState || crossfadeState !== st) return;
-      const x = Math.min(1, (now - started) / duration);
-      audio.volume = Math.cos(x * Math.PI / 2); audioNext.volume = Math.sin(x * Math.PI / 2);
-      if (x < 1) { crossfadeRAF = requestAnimationFrame(tick); return; }
-      const target = st.track, targetIndex = st.index, time = audioNext.currentTime || 0;
-      if (idx >= 0) { hist.push(idx); if (hist.length > 100) hist.shift(); }
-      idx = targetIndex; rememberTrack(target);
-      const src = audioNext.currentSrc || audioNext.src;
-      audio.pause(); audio.volume = 1;
-      const resume = () => { try { audio.currentTime = time; } catch (e) {} audio.play().catch(() => {}); };
-      audio.addEventListener('loadedmetadata', resume, { once: true }); audio.src = src; audio.load();
-      audioNext.pause(); audioNext.removeAttribute('src'); audioNext.load(); audioNext.volume = 0;
-      crossfadeState = null; crossfadeRAF = 0; crossfadeArmedFor = ''; crossfadeReadyTrack = null;
-      audio.playbackRate = playbackRate; setMedia(target); persistQueue(); store.set('time', time);
-      renderNow(); syncTabs(); markActive(true); progress(true);
-    };
-    crossfadeRAF = requestAnimationFrame(tick);
-  }
-  function startCrossfadeIfReady() {
-    if (!crossfadeReadyTrack || crossfadeState || audio.paused || !crossfadeSeconds) return;
-    if (audio.duration - audio.currentTime > crossfadeSeconds * playbackRate + 0.15) return;
-    const ready = crossfadeReadyTrack; crossfadeReadyTrack = null;
-    crossfadeState = { index: ready.index, track: ready.track, duration: crossfadeSeconds * 1000 };
-    audioNext.play().then(beginCrossfade).catch(() => { cancelCrossfade(true); });
-  }
-  function armCrossfade() {
-    if (!crossfadeSeconds || audio.paused || !isFinite(audio.duration) || audio.duration < crossfadeSeconds * playbackRate + 2 || crossfadeState || crossfadeReadyTrack || crossfadeArmedFor) return;
-    const ni = pickNext(true); if (ni < 0 || ni === idx) return;
-    const t = queue[ni]; if (!t || (dspLocked && !isLocalTrack(t))) return;
-    crossfadeArmedFor = t.id;
-    audioNext.pause(); audioNext.src = t.src; audioNext.currentTime = 0; audioNext.playbackRate = playbackRate; audioNext.volume = 0;
-    const ready = () => {
-      audioNext.removeEventListener('canplay', ready);
-      if (audio.paused || !crossfadeSeconds || crossfadeArmedFor !== t.id) return;
-      if (audioNext.duration && audioNext.duration < crossfadeSeconds * playbackRate + 1) { cancelCrossfade(false); return; }
-      crossfadeReadyTrack = { index: ni, track: t }; startCrossfadeIfReady();
-    };
-    audioNext.addEventListener('canplay', ready, { once: true });
-    audioNext.addEventListener('error', () => { if (crossfadeArmedFor === t.id) cancelCrossfade(true); }, { once: true });
-    try { audioNext.load(); } catch (e) {}
-  }
-  let visualContext = null, visualAnalyser = null, visualSource = null, visualData = null, visualRAF = 0;
-  function stopVisualLoop() { if (visualRAF) cancelAnimationFrame(visualRAF); visualRAF = 0; ui.classList.remove('audio-reactive'); ui.style.setProperty('--wave-level', '0'); if (dock) dock.querySelectorAll('.waves i').forEach((ring) => { ring.style.removeProperty('opacity'); ring.style.removeProperty('transform'); }); }
-  function visualTick() {
-    if (!visualAnalyser || audio.paused || document.hidden) { visualRAF = 0; return; }
-    visualAnalyser.getByteTimeDomainData(visualData);
-    let sum = 0; for (let i = 0; i < visualData.length; i++) { const v = (visualData[i] - 128) / 128; sum += v * v; }
-    const level = Math.min(1, Math.sqrt(sum / visualData.length) * 3.2);
-    ui.style.setProperty('--wave-level', level.toFixed(3));
-    dock.querySelectorAll('.waves i').forEach((ring, i) => { ring.style.opacity = String(Math.min(.9, .08 + level * (.7 - i * .13))); ring.style.transform = 'scale(' + (.82 + level * (.62 + i * .2)) + ')'; });
-    visualRAF = requestAnimationFrame(visualTick);
-  }
-  function startVisualLoop() {
-    if (visualRAF || !visualAnalyser || audio.paused || document.hidden) return;
-    ui.classList.add('audio-reactive'); visualRAF = requestAnimationFrame(visualTick);
-  }
-  function setupVisualizer() {
-    if (visualAnalyser) { if (visualContext && visualContext.state === 'suspended') visualContext.resume().catch(() => {}); startVisualLoop(); return; }
-    const capture = audio.captureStream || audio.mozCaptureStream;
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!capture || !AC) return;
-    try {
-      const stream = capture.call(audio);
-      if (!stream || !stream.getAudioTracks().length) return;
-      visualContext = new AC(); visualAnalyser = visualContext.createAnalyser(); visualAnalyser.fftSize = 256; visualData = new Uint8Array(visualAnalyser.fftSize);
-      visualSource = visualContext.createMediaStreamSource(stream); visualSource.connect(visualAnalyser);
-      if (visualContext.state === 'suspended') visualContext.resume().catch(() => {});
-      startVisualLoop();
-    } catch (e) { visualAnalyser = null; visualContext = null; }
-  }
+  audio.preload = 'auto';
   let queue = store.get('queue', []);
   let idx = store.get('idx', -1);
   let shuffle = !!store.get('shuffle', false);
@@ -183,9 +57,7 @@
   let theme = store.get('theme', 'glass');
   if (!THEMES.some((t) => t[0] === theme)) theme = 'glass';
   let pos = store.get('pos', { side: 'r', y: 0.7 });
-  let pageTracks = [], lastSig = '', hist = [], recent = store.get('recent', []), errStreak = 0;
-  if (!Array.isArray(recent)) recent = [];
-  let sleepTimer = 0, sleepDeadline = 0, playbackRate = Number(store.get('rate', 1)) || 1;
+  let pageTracks = [], lastSig = '', hist = [], errStreak = 0;
   let hidden = false, isOpen = false, tab = 'page', seeking = false, armed = false, lastDrag = 0;
   const foreign = new Set();
   let favs = store.get('favs', []), pls = store.get('pls', []);
@@ -254,18 +126,7 @@ a{color:inherit}
 .mb{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:22px;color:#fff;
   background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.28);box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
 
-.pb{position:relative;flex:none;width:52px;height:52px;border-radius:50%;font-size:26px;color:var(--diskc);isolation:isolate}
-.dock .pb{z-index:1}
-.waves{position:absolute;inset:-5px;pointer-events:none;z-index:-1}
-.waves i{position:absolute;inset:0;border:1.5px solid rgba(175,150,255,.78);border-radius:50%;opacity:0;transform:scale(.82)}
-.waves i:nth-child(2){animation-delay:.6s;border-color:rgba(105,210,255,.68)}
-.waves i:nth-child(3){animation-delay:1.2s;border-color:rgba(255,255,255,.52)}
-.playing .dock .waves i{animation:wave-breathe 1.8s cubic-bezier(.15,.55,.35,1) infinite}
-.audio-reactive.playing .dock .waves i{animation:none;transition:opacity .08s linear,transform .08s linear}
-@keyframes wave-breathe{0%{opacity:0;transform:scale(.82)}18%{opacity:.62}100%{opacity:0;transform:scale(1.85)}}
-.dock .pb .disk{z-index:1}
-.dock .pb .ring{z-index:2}
-.dock .pb .waves{z-index:-1}
+.pb{position:relative;flex:none;width:52px;height:52px;border-radius:50%;font-size:26px;color:var(--diskc)}
 .ring{position:absolute;inset:0;border-radius:50%;background:var(--ring);
   -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 2.5px),#000 calc(100% - 2px));
   mask:radial-gradient(farthest-side,transparent calc(100% - 2.5px),#000 calc(100% - 2px))}
@@ -289,8 +150,6 @@ a{color:inherit}
   transform:translateY(105%);visibility:hidden;
   transition:transform .28s cubic-bezier(.2,.8,.2,1),visibility 0s .28s}
 .open .sheet{transform:none;visibility:visible;transition:transform .28s cubic-bezier(.2,.8,.2,1),visibility 0s}
-.sheet.immersive{left:0;right:0;top:0;bottom:0;width:100%;max-width:none;max-height:none;min-height:100%;height:100%;height:100dvh;border-radius:0;border:0;padding:calc(12px + env(safe-area-inset-top,0px)) 18px calc(16px + env(safe-area-inset-bottom,0px));gap:clamp(12px,2.4vh,24px)}
-.sheet.immersive .now{margin-top:auto}.sheet.immersive .cover{width:min(58vw,280px);height:min(58vw,280px);margin:0 auto;border-radius:24px}.sheet.immersive .now{display:grid;grid-template-columns:1fr auto;text-align:center}.sheet.immersive .meta{grid-column:1/-1}.sheet.immersive .title{font-size:clamp(20px,5vw,28px)}.sheet.immersive .ctl{justify-content:center;gap:clamp(8px,4vw,26px)}.sheet.immersive .list{min-height:20vh}
 
 .hd{position:relative;display:flex;align-items:center;justify-content:space-between;min-height:48px;padding-top:8px;touch-action:none}
 .grab{position:absolute;left:50%;top:4px;width:38px;height:4px;margin-left:-19px;border-radius:2px;background:var(--ln)}
@@ -377,7 +236,7 @@ a{color:inherit}
 .sheet.set .settings{display:flex}
 .sheet.set .tabs,.sheet.set .qw,.sheet.set .list{display:none!important}
 .sh{margin-top:4px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mu)}
-.eqbox{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border:1px solid var(--ln);border-radius:14px;background:var(--f1)}.eqrow{display:grid;grid-template-columns:1fr minmax(90px,1.3fr) 48px;gap:8px;align-items:center;font-size:13px;color:var(--mu)}.eqrow input{width:100%;accent-color:var(--ac)}.eqrow output{text-align:right;font-variant-numeric:tabular-nums}.eqnote{font-size:12px;line-height:1.4;color:var(--mu)}.btns{display:flex;gap:8px}
+.btns{display:flex;gap:8px}
 .btns .bt{flex:1}
 .pop{position:absolute;inset:0;z-index:5;display:flex;align-items:flex-end;background:rgba(0,0,0,.45);border-radius:inherit}
 .panel{width:100%;max-height:72%;overflow-y:auto;padding:6px 8px calc(8px + env(safe-area-inset-bottom,0px));border-radius:18px 18px 0 0;background:var(--pbg);border-top:1px solid var(--sbd)}
@@ -385,7 +244,7 @@ a{color:inherit}
 .pit{display:block;width:100%;min-height:50px;padding:0 14px;text-align:left;font-size:16px;color:var(--tx);border-radius:12px}
 .pit:active{background:var(--f2)}
 .pit.bad{color:#ff6b6b}
-@media (prefers-reduced-motion:reduce){.playing .ring{animation:none}.playing .dock .waves i{animation:none!important}.sheet,.dock.snap{transition:none}}
+@media (prefers-reduced-motion:reduce){.playing .ring{animation:none}.sheet,.dock.snap{transition:none}}
 `;
 
   /* ---------- DOM ---------- */
@@ -397,7 +256,7 @@ a{color:inherit}
     '<div class="ui">' +
       '<div class="nav"></div>' +
       '<div class="dock off">' +
-        '<button class="pb" data-act="play" aria-label="Играть / пауза"><span class="waves"><i></i><i></i><i></i></span><span class="ring"></span><span class="disk"></span></button>' +
+        '<button class="pb" data-act="play" aria-label="Играть / пауза"><span class="ring"></span><span class="disk"></span></button>' +
         '<button class="mb" data-act="open" aria-label="Меню плеера">' + IC.dots + '</button>' +
       '</div>' +
       '<div class="scrim" data-act="close"></div>' +
@@ -405,7 +264,6 @@ a{color:inherit}
         '<div class="hd"><span class="grab"></span>' +
           '<a class="sig" href="' + SIGN_HREF + '" target="_blank" rel="noopener">' + SIGN_TEXT + '</a>' +
           '<div class="hr"><button class="cl" data-act="settings" aria-label="Настройки">' + IC.gear + '</button>' +
-          '<button class="cl" data-act="immersive" aria-label="Полноэкранный режим">' + svg('<path d="M8 3H5a2 2 0 0 0-2 2v3m13-5h3a2 2 0 0 1 2 2v3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3" ' + ST + '/>') + '</button>' +
           '<button class="cl" data-act="close" aria-label="Свернуть">' + IC.down + '</button></div></div>' +
         '<div class="now"><div class="cover"><span>♪</span><img alt="" hidden></div>' +
           '<div class="meta"><div class="title">Выберите трек</div><div class="artist">&nbsp;</div></div>' +
@@ -423,23 +281,9 @@ a{color:inherit}
         '<div class="list"></div>' +
         '<div class="settings">' +
           '<div class="sh">Тема</div><div class="themes"></div>' +
-          '<div class="sh">Воспроизведение</div>' +
-          '<div class="opt"><span>Скорость</span><select data-act="rate" class="bt" style="margin-left:auto;max-width:130px"><option value="0.75">0.75×</option><option value="1">1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="1.75">1.75×</option><option value="2">2×</option></select></div>' +
-          '<div class="sh">Эквалайзер и звук</div>' +
-          '<button class="bt" data-act="dsp">Включить аудиообработку</button>' +
-          '<button class="opt" data-act="bass" role="switch" aria-checked="false"><span class="sw"></span><span>Bass Boost +7 dB</span></button>' +
-          '<div class="eqbox">' + [
-            ['60–120 Hz','Низкие'],['250 Hz','Нижняя середина'],['1 kHz','Средние'],['4 kHz','Верхняя середина'],['12 kHz','Высокие']
-          ].map((x,i)=>'<label class="eqrow"><span>'+x[1]+'</span><input type="range" min="-12" max="12" step="1" value="'+(Number(eqGains[i])||0)+'" data-eq="'+i+'"><output>'+((Number(eqGains[i])||0)>0?'+':'')+(Number(eqGains[i])||0)+' dB</output></label>').join('') + '</div>' +
-          '<p class="eqnote">Аудиообработка работает для треков с того же сайта. После первого включения внешние CDN-треки заблокированы до перезагрузки страницы: это защита от тишины из-за CORS.</p>' +
-          '<div class="opt"><span>Таймер сна</span><select data-act="sleep" class="bt" style="margin-left:auto;max-width:150px"><option value="0">Выключен</option><option value="15">15 минут</option><option value="30">30 минут</option><option value="45">45 минут</option><option value="60">60 минут</option><option value="90">90 минут</option></select></div>' +
-          '<div class="opt"><span>Плавный переход</span><select data-act="crossfade" class="bt" style="margin-left:auto;max-width:150px"><option value="0">Выключен</option><option value="2">2 секунды</option><option value="4">4 секунды</option><option value="6">6 секунд</option><option value="8">8 секунд</option></select></div>' +
           '<div class="sh">Поведение</div>' +
           '<button class="opt" data-act="pjax" role="switch" aria-checked="true"><span class="sw"></span><span>Не прерывать музыку при переходах</span></button>' +
           '<button class="opt" data-act="collapse" role="switch" aria-checked="true"><span class="sw"></span><span>Сворачивать кнопку в пузырёк</span></button>' +
-          '<button class="opt" data-act="wake" role="switch" aria-checked="false"><span class="sw"></span><span>Не гасить экран во время прослушивания</span></button>' +
-          '<div class="sh">История</div>' +
-          '<button class="bt" data-act="clearhistory">Очистить историю</button>' +
           '<div class="sh">Избранное и плейлисты</div>' +
           '<div class="btns"><button class="bt" data-act="export">Экспорт в файл</button><button class="bt" data-act="import">Импорт из файла</button></div>' +
           '<button class="bt" data-act="hide">Скрыть плеер до перезагрузки страницы</button>' +
@@ -460,7 +304,6 @@ a{color:inherit}
   const qw = $('.qw'), qInp = $('.q'), pop = $('.pop'), fileInp = $('.file'), favCur = $('[data-act=favcur]'), gearBtn = $('[data-act=settings]');
   coverImg.onerror = () => { coverImg.hidden = true; };
   const thBox = $('.themes');
-  const crossfadeSelect = $('[data-act=crossfade]'); if (crossfadeSelect) crossfadeSelect.value = String(crossfadeSeconds);
   THEMES.forEach((t) => {
     const b = document.createElement('button');
     b.className = 'th';
@@ -495,20 +338,17 @@ a{color:inherit}
         duration: Number(n.dataset.durationValue) || 0
       });
     });
-    document.querySelectorAll('audio[src],audio source[src],a[href],link[rel=preload][as=audio]').forEach((n) => {
+    if (map.size) return Array.from(map.values());
+    document.querySelectorAll('audio[src],audio source[src],a[href]').forEach((n) => {
       const raw = n.getAttribute('src') || n.getAttribute('href');
       if (!raw || !AUDIO_EXT.test(raw)) return;
       const src = abs(raw);
-      if (map.has(src) || Array.from(map.values()).some((t) => t.src === src)) return;
+      if (map.has(src)) return;
       let title = '';
       if (n.tagName === 'A') title = (n.textContent || '').trim();
       else { const a = n.closest('audio'); title = a ? (a.getAttribute('title') || '').trim() : ''; }
       map.set(src, { id: src, src, title: title || nameOf(src), artist: '', cover: '', duration: 0 });
     });
-    try { performance.getEntriesByType('resource').forEach((entry) => {
-      const src = abs(entry.name); if ((!AUDIO_EXT.test(src) && entry.initiatorType !== 'audio') || map.has(src) || Array.from(map.values()).some((t) => t.src === src)) return;
-      map.set(src, { id: src, src, title: nameOf(src), artist: '', cover: '', duration: 0 });
-    }); } catch (e) {}
     return Array.from(map.values());
   }
   function syncPage() {
@@ -522,15 +362,10 @@ a{color:inherit}
     syncTabs(); renderList(); updateVisibility();
   }
   let scanT = 0;
-  const scheduleScan = (records) => {
-    if (records && records.length && records.every((m) => host.contains(m.target) || m.target === host)) return;
-    clearTimeout(scanT); scanT = setTimeout(syncPage, 450);
-  };
-  const pageObserver = new MutationObserver(scheduleScan);
-  pageObserver.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-src','data-title','data-artist','data-cover','data-duration-value','href','src'] });
+  const scheduleScan = () => { clearTimeout(scanT); scanT = setTimeout(syncPage, 400); };
+  new MutationObserver(scheduleScan).observe(document.documentElement, { childList: true, subtree: true });
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { store.set('time', audio.currentTime || 0); stopVisualLoop(); if (crossfadeState || crossfadeArmedFor) cancelCrossfade(true); }
-    else { scheduleScan(); if (!audio.paused) { setupVisualizer(); if (keepScreenOn) setWakeLock(true); } }
+    if (document.hidden) store.set('time', audio.currentTime || 0); else scheduleScan();
   });
 
   /* ---------- отрисовка ---------- */
@@ -538,17 +373,15 @@ a{color:inherit}
   function listArr() {
     if (tab === 'queue') return queue;
     if (tab === 'favs') return favs;
-    if (tab === 'history') return recent;
     if (tab === 'pls') { const p = plCur(); return p ? p.tracks : []; }
     return pageTracks;
   }
   const isFav = (id) => favs.some((x) => x.id === id);
   function syncTabs() {
     const a = [];
-    if (pageTracks.length) a.push(['page', 'Библиотека ' + pageTracks.length]);
+    if (pageTracks.length) a.push(['page', 'Страница ' + pageTracks.length]);
     if (queue.length && sigOf(queue) !== sigOf(pageTracks)) a.push(['queue', 'Очередь ' + queue.length]);
     a.push(['favs', '♥ ' + favs.length]);
-    a.push(['history', 'История ' + recent.length]);
     a.push(['pls', 'Плейлисты ' + pls.length]);
     if (!a.some((x) => x[0] === tab)) { tab = a[0][0]; plView = null; }
     tabsEl.textContent = '';
@@ -578,7 +411,6 @@ a{color:inherit}
   function emptyMsg() {
     if (tab === 'queue') return 'Очередь пуста';
     if (tab === 'favs') return 'Нажмите ♥ у трека, чтобы добавить его в избранное';
-    if (tab === 'history') return 'История прослушивания пока пуста';
     if (tab === 'pls') return 'В плейлисте пока пусто. Добавьте треки через ⋯';
     return 'На этой странице нет треков';
   }
@@ -610,21 +442,13 @@ a{color:inherit}
     }
     list.appendChild(f);
   }
-  let listRendered = 0, listFiltered = [];
-  function appendListChunk() {
-    const frag = document.createDocumentFragment();
-    const end = Math.min(listFiltered.length, listRendered + 60);
-    for (; listRendered < end; listRendered++) { const item = listFiltered[listRendered]; frag.appendChild(rowEl(item.track, item.index)); }
-    list.appendChild(frag);
-    markActive(false);
-  }
   function renderList(keep) {
     const st = list.scrollTop;
     list.textContent = '';
     const index = tab === 'pls' && !plCur();
     const arr = listArr();
     qw.classList.toggle('off', index || !(arr.length > 5 || qstr));
-    if (index) { listFiltered = []; listRendered = 0; renderPlaylists(); return; }
+    if (index) { renderPlaylists(); return; }
     const frag = document.createDocumentFragment();
     if (tab === 'pls') {
       const p = plCur();
@@ -638,9 +462,12 @@ a{color:inherit}
       frag.appendChild(h);
     }
     const ql = qstr.trim().toLowerCase();
-    listFiltered = arr.map((track, index) => ({track, index})).filter((x) => !ql || label(x.track).toLowerCase().indexOf(ql) >= 0);
-    listRendered = 0;
-    const shown = listFiltered.length;
+    let shown = 0;
+    arr.forEach((t, i) => {
+      if (ql && label(t).toLowerCase().indexOf(ql) < 0) return;
+      shown++;
+      frag.appendChild(rowEl(t, i));
+    });
     if (!shown) {
       const e = document.createElement('div');
       e.className = 'empty';
@@ -648,14 +475,9 @@ a{color:inherit}
       frag.appendChild(e);
     }
     list.appendChild(frag);
-    if (shown) appendListChunk();
     if (keep) list.scrollTop = st;
     markActive(!keep);
   }
-  list.addEventListener('scroll', () => {
-    if (listRendered < listFiltered.length && list.scrollTop + list.clientHeight >= list.scrollHeight - 180) appendListChunk();
-  }, { passive: true });
-
   function markActive(center) {
     const id = curId(), arr = listArr(), playing = !audio.paused;
     list.querySelectorAll('.row').forEach((r) => {
@@ -866,43 +688,19 @@ a{color:inherit}
   hd.addEventListener('pointercancel', endSwipe);
 
   /* ---------- очередь и воспроизведение ---------- */
-  function rememberTrack(t) {
-    if (!t) return;
-    recent = [clean(t)].concat(recent.filter((x) => x.id !== t.id)).slice(0, 100);
-    store.set('recent', recent);
-    if (tab === 'history') renderList(true);
-    syncTabs();
-  }
-  function setRate(v) {
-    const n = Math.max(.5, Math.min(2, Number(v) || 1));
-    playbackRate = n; audio.playbackRate = n; audio.defaultPlaybackRate = n; audioNext.playbackRate = n;
-    store.set('rate', n);
-    const el = $('[data-act=rate]'); if (el) el.value = String(n);
-  }
-  function setSleep(minutes) {
-    clearTimeout(sleepTimer); sleepTimer = 0; sleepDeadline = 0;
-    const m = Number(minutes) || 0;
-    if (m > 0) { sleepDeadline = Date.now() + m * 60000; sleepTimer = setTimeout(() => { audio.pause(); toast('Таймер сна завершён'); sleepDeadline = 0; const el = $('[data-act=sleep]'); if (el) el.value = '0'; }, m * 60000); toast('Таймер сна: ' + m + ' мин.'); }
-    else toast('Таймер сна выключен');
-  }
   const rnd = (n) => Math.floor(Math.random() * n);
   function persistQueue() { store.set('queue', queue); store.set('idx', idx); }
   function playSafe() {
     armed = true;
-    setupVisualizer();
     const p = audio.play();
     if (p && p.catch) p.catch((err) => {
       if (err && err.name === 'NotAllowedError') toast('Нажмите ▶, чтобы запустить');
     });
   }
   function load(i, autoplay, startAt) {
-    cancelCrossfade(false); audio.volume = 1;
     const t = queue[i];
     if (!t) return;
-    if (dspLocked && !isLocalTrack(t)) { toast('Этот трек с другого домена. Перезагрузите страницу для прямого воспроизведения'); return; }
     idx = i;
-    rememberTrack(t);
-    audio.playbackRate = playbackRate;
     audio.preload = autoplay ? 'auto' : 'metadata';
     audio.src = t.src;
     if (startAt) audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = startAt; } catch (e) {} }, { once: true });
@@ -913,7 +711,6 @@ a{color:inherit}
     renderNow(); syncTabs(); markActive(true); progress(true);
   }
   function setQueue(tracks, index, autoplay) {
-    if (dspLocked && tracks.some((t) => !isLocalTrack(t))) { toast('Аудиообработка активна: очередь должна быть с этого сайта. Перезагрузите страницу для внешних треков'); return; }
     queue = tracks.slice();
     hist = [];
     idx = -1;
@@ -929,7 +726,6 @@ a{color:inherit}
     return (repeat === 'all' || !auto) ? 0 : -1;
   }
   function next(auto) {
-    cancelCrossfade(false); audio.volume = 1;
     if (auto && repeat === 'one') { audio.currentTime = 0; playSafe(); return; }
     const x = pickNext(auto);
     if (x < 0) { setPlayUI(); return; }
@@ -937,7 +733,6 @@ a{color:inherit}
     load(x, true);
   }
   function prev() {
-    cancelCrossfade(false); audio.volume = 1;
     if (audio.currentTime > 3) { audio.currentTime = 0; return; }
     if (hist.length) { load(hist.pop(), true); return; }
     if (!queue.length) return;
@@ -1011,7 +806,6 @@ a{color:inherit}
   }
   function enqueue(t, nextFlag) {
     const c = clean(t);
-    if (dspLocked && !isLocalTrack(c)) { toast('Внешний трек недоступен при включённой аудиообработке'); return; }
     if (!queue.length) { setQueue([c], 0, true); toast('Играет: ' + label(c)); return; }
     const cid = curId();
     if (c.id === cid) { toast('Этот трек уже играет'); return; }
@@ -1106,7 +900,7 @@ a{color:inherit}
   }
   function exportData() {
     try {
-      const data = { app: 'spaces-float-player', v: 2, favs, playlists: pls, queue, idx, recent, playbackRate, shuffle, repeat, theme, pos, crossfadeSeconds };
+      const data = { app: 'spaces-float-player', v: 1, favs, playlists: pls };
       const url = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }));
       const a = document.createElement('a');
       a.href = url;
@@ -1122,14 +916,6 @@ a{color:inherit}
     if (!d || typeof d !== 'object') { toast('Это не файл плеера'); return; }
     const ok = (t) => t && t.id != null && typeof t.src === 'string' && /^(https?:|blob:|data:)/i.test(t.src);
     let nf = 0, np = 0;
-    if (Array.isArray(d.recent)) { recent = d.recent.filter(ok).slice(0, 100).map(clean); store.set('recent', recent); }
-    if (Array.isArray(d.queue) && d.queue.every(ok) && (!dspLocked || d.queue.every(isLocalTrack))) { queue = d.queue.slice(0, 5000).map(clean); idx = Number.isInteger(d.idx) && d.idx >= 0 && d.idx < queue.length ? d.idx : -1; persistQueue(); }
-    if (d.playbackRate) setRate(d.playbackRate);
-    if (Number.isFinite(Number(d.crossfadeSeconds))) { crossfadeSeconds = Math.max(0, Math.min(8, Number(d.crossfadeSeconds))); store.set('crossfade', crossfadeSeconds); if (crossfadeSelect) crossfadeSelect.value = String(crossfadeSeconds); }
-    if (typeof d.shuffle === 'boolean') { shuffle = d.shuffle; store.set('shuffle', shuffle); }
-    if (['off','all','one'].includes(d.repeat)) { repeat = d.repeat; store.set('repeat', repeat); }
-    if (THEMES.some((x) => x[0] === d.theme)) { theme = d.theme; store.set('theme', theme); applyTheme(); }
-    if (d.pos && ['l','r'].includes(d.pos.side) && Number.isFinite(d.pos.y)) { pos = d.pos; store.set('pos', pos); place(false); }
     (Array.isArray(d.favs) ? d.favs : []).filter(ok).slice(0, 5000).forEach((t) => {
       if (!favs.some((x) => x.id === String(t.id))) { favs.push(clean(t)); nf++; }
     });
@@ -1139,7 +925,7 @@ a{color:inherit}
       if (!ex) { ex = { id: newId(), name: p.name.slice(0, 60), tracks: [] }; pls.push(ex); np++; }
       p.tracks.filter(ok).slice(0, 5000).forEach((t) => { if (!ex.tracks.some((x) => x.id === String(t.id))) ex.tracks.push(clean(t)); });
     });
-    saveFavs(); savePls(); store.set('recent', recent); syncTabs(); renderList(true); syncFavCur(); applyModes();
+    saveFavs(); savePls(); syncTabs(); renderList(true); syncFavCur();
     toast('Импорт: ♥ +' + nf + ', плейлистов +' + np);
   }
   fileInp.addEventListener('change', () => {
@@ -1164,16 +950,16 @@ a{color:inherit}
   function pauseForeign() {
     const all = new Set(foreign);
     document.querySelectorAll('audio,video').forEach((m) => all.add(m));
-    all.forEach((m) => { if (m !== audio && m !== audioNext && !m.paused) { try { m.pause(); } catch (e) {} } });
+    all.forEach((m) => { if (m !== audio && !m.paused) { try { m.pause(); } catch (e) {} } });
   }
   const origPlay = HTMLMediaElement.prototype.play;
   HTMLMediaElement.prototype.play = function () {
-    if (this !== audio && this !== audioNext) foreign.add(this);
+    if (this !== audio) foreign.add(this);
     return origPlay.apply(this, arguments);
   };
   let lastPersist = 0, lastPos = 0;
-  audio.addEventListener('play', () => { if (keepScreenOn) setWakeLock(true); pauseForeign(); setPlayUI(); setMediaState(); setupVisualizer(); });
-  audio.addEventListener('pause', () => { if (crossfadeState || crossfadeArmedFor) cancelCrossfade(true); if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; } setPlayUI(); setMediaState(); stopVisualLoop(); store.set('time', audio.currentTime || 0); });
+  audio.addEventListener('play', () => { pauseForeign(); setPlayUI(); setMediaState(); });
+  audio.addEventListener('pause', () => { setPlayUI(); setMediaState(); store.set('time', audio.currentTime || 0); });
   audio.addEventListener('playing', () => { errStreak = 0; });
   audio.addEventListener('ended', () => next(true));
   audio.addEventListener('durationchange', () => { progress(false); updatePosition(); });
@@ -1182,7 +968,6 @@ a{color:inherit}
     if (isOpen) progress(false);
     if (now - lastPos > 1000) { lastPos = now; updatePosition(); }
     if (now - lastPersist > 2000) { lastPersist = now; store.set('time', audio.currentTime || 0); }
-    if (crossfadeSeconds && !crossfadeState) { const left = audio.duration - audio.currentTime; if (left <= crossfadeSeconds * playbackRate + 12) armCrossfade(); startCrossfadeIfReady(); }
   });
   audio.addEventListener('error', () => {
     if (!audio.getAttribute('src') || !armed) return;
@@ -1223,17 +1008,6 @@ a{color:inherit}
   } catch (e) {}
 
   /* ---------- управление ---------- */
-  root.addEventListener('click', (e) => { if (e.target && e.target.tagName === 'SELECT') e.stopPropagation(); }, true);
-  root.addEventListener('input', (e) => {
-    const i = e.target && e.target.dataset ? e.target.dataset.eq : undefined;
-    if (i !== undefined) { eqGains[Number(i)] = Number(e.target.value); store.set('eqGains', eqGains); const out = e.target.parentNode.querySelector('output'); if (out) out.textContent = (Number(e.target.value)>0?'+':'') + e.target.value + ' dB'; applyEQ(); }
-  });
-  root.addEventListener('change', (e) => {
-    const a = e.target && e.target.dataset ? e.target.dataset.act : '';
-    if (a === 'rate') setRate(e.target.value);
-    if (a === 'sleep') setSleep(e.target.value);
-    if (a === 'crossfade') { crossfadeSeconds = Math.max(0, Math.min(8, Number(e.target.value) || 0)); store.set('crossfade', crossfadeSeconds); cancelCrossfade(true); toast(crossfadeSeconds ? 'Crossfade: ' + crossfadeSeconds + ' сек.' : 'Crossfade выключен'); }
-  });
   root.addEventListener('click', (e) => {
     if (Date.now() - lastDrag < 300) return;
     const T = e.target;
@@ -1285,10 +1059,6 @@ a{color:inherit}
       case 'close': setOpen(false); break;
       case 'favcur': { const t3 = cur(); if (t3) toggleFav(t3); else toast('Сначала выберите трек'); break; }
       case 'settings': { const on = sheet.classList.toggle('set'); gearBtn.classList.toggle('on', on); if (!on) renderList(true); break; }
-      case 'immersive': sheet.classList.toggle('immersive'); break;
-      case 'dsp': setDSP(!dspEnabled); break;
-      case 'bass': bassBoost = !bassBoost; store.set('bassBoost', bassBoost); applyEQ(); syncDSPUI(); break;
-      case 'wake': setWakeLock(!keepScreenOn); break;
       case 'pjax': pjaxOn = !pjaxOn; store.set('pjax', pjaxOn); applyPjaxSwitch(); break;
       case 'collapse':
         autoCollapse = !autoCollapse;
@@ -1300,7 +1070,6 @@ a{color:inherit}
       case 'plnew': { const n = askName('', 'Название плейлиста'); if (n) createPl(n, []); break; }
       case 'plnewpage': { const n = askName('Из страницы', 'Название плейлиста'); if (n) createPl(n, pageTracks); break; }
       case 'plback': plView = null; qstr = ''; qInp.value = ''; syncTabs(); renderList(); break;
-      case 'clearhistory': recent = []; store.set('recent', recent); syncTabs(); renderList(true); toast('История очищена'); break;
       case 'export': exportData(); break;
       case 'import': fileInp.click(); break;
       case 'hide': hidden = true; setOpen(false); updateVisibility(); toast('Плеер скрыт до перезагрузки страницы'); break;
@@ -1434,7 +1203,6 @@ a{color:inherit}
   });
 
   /* ---------- запуск ---------- */
-  audio.playbackRate = playbackRate;
   if (cur()) {
     const t = cur(), st = Number(store.get('time', 0)) || 0;
     audio.preload = 'metadata';
@@ -1442,7 +1210,7 @@ a{color:inherit}
     if (st > 1) audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = st; } catch (e) {} }, { once: true });
     setMedia(t);
   }
-  applyTheme(); renderNow(); applyModes(); syncDSPUI(); syncWakeUI(); applyPjaxSwitch(); applyCollapseSwitch(); setRate(playbackRate); setPlayUI(); progress(true); syncTabs();
+  applyTheme(); renderNow(); applyModes(); applyPjaxSwitch(); applyCollapseSwitch(); setPlayUI(); progress(true); syncTabs();
   syncPage();
   updateVisibility();
 
