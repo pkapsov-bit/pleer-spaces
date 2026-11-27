@@ -5,7 +5,7 @@
   'use strict';
   if (window.__fp) { window.__fp.toggle(); return; }
 
-  const VERSION = '1.0';
+  const VERSION = '1.2';
   const SIGN_TEXT = 'Автор @https';
   const SIGN_HREF = 'https://world84.spcs.bio/mysite/index/https/';
 
@@ -47,6 +47,8 @@
   let shuffle = !!store.get('shuffle', false);
   let repeat = store.get('repeat', 'off');
   let pjaxOn = store.get('pjax', true);
+  let musicBreath = store.get('musicBreath', true);
+  let audioCtx = null, analyser = null, freqData = null, sourceNode = null, breathFrame = 0, breathLevel = 0;
   const THEMES = [
     ['glass', 'Стекло', 'linear-gradient(135deg,rgba(255,255,255,.9),rgba(255,255,255,.25))'],
     ['dark', 'Тёмная', '#111'],
@@ -108,17 +110,31 @@ a{color:inherit}
 .off{display:none!important}
 
 .dock{position:fixed;left:0;top:0;z-index:2147483645;width:${DW}px;height:${DH}px;display:flex;align-items:center;justify-content:space-between;padding:6px;
-  border-radius:32px;color:#fff;
-  background:linear-gradient(135deg,rgba(255,255,255,.26),rgba(255,255,255,.04) 55%,rgba(255,255,255,.14)),rgba(20,22,30,.32);
-  border:1px solid rgba(255,255,255,.4);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.6),inset 0 -1px 0 rgba(255,255,255,.16),inset 0 0 14px rgba(255,255,255,.1),0 8px 26px rgba(0,0,0,.28);
-  -webkit-backdrop-filter:blur(18px) saturate(190%);backdrop-filter:blur(18px) saturate(190%);
-  touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;will-change:transform;transition:opacity .2s}
-.dock::before{content:'';position:absolute;left:12%;right:12%;top:2px;height:42%;border-radius:32px 32px 60% 60%;
-  background:linear-gradient(180deg,rgba(255,255,255,.34),rgba(255,255,255,0));pointer-events:none}
+  border-radius:32px;color:#fff;isolation:isolate;overflow:visible;
+  background:linear-gradient(145deg,rgba(255,255,255,.34),rgba(255,255,255,.075) 28%,rgba(22,25,42,.42) 72%,rgba(255,255,255,.18)),linear-gradient(110deg,rgba(255,255,255,.08),rgba(255,255,255,0) 42%,rgba(150,190,255,.13)),rgba(20,22,34,.38);
+  border:1px solid rgba(255,255,255,.48);
+  box-shadow:inset 0 1.4px 0 rgba(255,255,255,.78),inset 1px 0 0 rgba(255,255,255,.22),inset -1px 0 0 rgba(255,255,255,.12),inset 0 -1px 0 rgba(255,255,255,.22),inset 0 0 22px rgba(255,255,255,.095),0 12px 34px rgba(0,0,0,.32),0 2px 8px rgba(0,0,0,.18);
+  -webkit-backdrop-filter:blur(26px) saturate(220%) contrast(108%);backdrop-filter:blur(26px) saturate(220%) contrast(108%);
+  touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;will-change:transform;transition:opacity .2s,border-color .25s,box-shadow .25s}
+.dock::before{content:'';position:absolute;inset:1px 8px auto;height:48%;border-radius:30px 30px 60% 60%;
+  background:linear-gradient(180deg,rgba(255,255,255,.52),rgba(255,255,255,.13) 42%,rgba(255,255,255,0));pointer-events:none;z-index:0}
+.dock::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse at 12% 0%,rgba(255,255,255,.32),transparent 38%),radial-gradient(ellipse at 92% 100%,rgba(135,175,255,.2),transparent 44%),linear-gradient(115deg,transparent 28%,rgba(255,255,255,.10) 48%,transparent 66%);
+  opacity:.9;mix-blend-mode:screen}
+.dock>button{z-index:2;position:relative}
 .dock svg{filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+/* Audio-reactive light volume. All layers are composited and never intercept touch. */
+.breath-halo,.breath-orbit{position:absolute;pointer-events:none;z-index:-1;border-radius:inherit;opacity:0;transition:opacity .35s ease}
+.breath-halo{inset:-9px;border-radius:38px;background:radial-gradient(ellipse at 50% 50%,rgba(90,190,255,.0) 34%,rgba(94,180,255,.26) 57%,rgba(160,120,255,.19) 72%,transparent 82%);
+  filter:blur(13px);transform:scale(var(--breath-scale,1));will-change:transform,opacity;}
+.breath-orbit{inset:-4px;border:1px solid rgba(190,225,255,.38);box-shadow:0 0 0 1px rgba(180,220,255,.22),0 0 13px rgba(100,190,255,.32),inset 0 0 12px rgba(170,210,255,.12);
+  transform:scale(var(--breath-scale,1));will-change:transform,opacity,border-color}
+.dock.is-breathing .breath-halo,.dock.is-breathing .breath-orbit{opacity:var(--breath-opacity,.2)}
+.dock.is-breathing{border-color:rgba(205,235,255,.68);box-shadow:inset 0 1.4px 0 rgba(255,255,255,.78),inset 0 0 22px rgba(255,255,255,.095),0 12px 34px rgba(0,0,0,.32),0 0 18px rgba(100,180,255,.24)}
+.dock.breath-off .breath-halo,.dock.breath-off .breath-orbit{opacity:0!important}
+.dock.breath-off{box-shadow:inset 0 1.4px 0 rgba(255,255,255,.78),inset 0 0 22px rgba(255,255,255,.095),0 12px 34px rgba(0,0,0,.32)}
 .dock.snap{transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .2s,width .28s,height .28s,padding .28s}
-.dock.mini{width:${MW}px;height:${MW}px;padding:4px;justify-content:center;opacity:.6}
+.dock.mini{width:${MW}px;height:${MW}px;padding:4px;justify-content:center;opacity:.82;border-radius:50%}.dock.mini .breath-halo{inset:-8px;border-radius:50%}.dock.mini .breath-orbit{inset:-4px;border-radius:50%}
 .dock.mini .mb{display:none}
 .dock.mini .pb{width:34px;height:34px;font-size:17px}
 .dock.drag{box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 14px 34px rgba(0,0,0,.4);opacity:.94}
@@ -235,6 +251,7 @@ a{color:inherit}
 .settings{display:none;flex:1;flex-direction:column;gap:10px;overflow-y:auto;overscroll-behavior:contain;min-height:60px}
 .sheet.set .settings{display:flex}
 .sheet.set .tabs,.sheet.set .qw,.sheet.set .list{display:none!important}
+.hint{font-size:12px;line-height:1.45;color:var(--mu);padding:0 10px 8px;opacity:.9}
 .sh{margin-top:4px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mu)}
 .btns{display:flex;gap:8px}
 .btns .bt{flex:1}
@@ -244,7 +261,7 @@ a{color:inherit}
 .pit{display:block;width:100%;min-height:50px;padding:0 14px;text-align:left;font-size:16px;color:var(--tx);border-radius:12px}
 .pit:active{background:var(--f2)}
 .pit.bad{color:#ff6b6b}
-@media (prefers-reduced-motion:reduce){.playing .ring{animation:none}.sheet,.dock.snap{transition:none}}
+@media (prefers-reduced-motion:reduce){.playing .ring{animation:none}.sheet,.dock.snap{transition:none}.breath-halo,.breath-orbit{filter:none;transition:none}}
 `;
 
   /* ---------- DOM ---------- */
@@ -256,6 +273,7 @@ a{color:inherit}
     '<div class="ui">' +
       '<div class="nav"></div>' +
       '<div class="dock off">' +
+        '<span class="breath-orbit" aria-hidden="true"></span><span class="breath-halo" aria-hidden="true"></span>' +
         '<button class="pb" data-act="play" aria-label="Играть / пауза"><span class="ring"></span><span class="disk"></span></button>' +
         '<button class="mb" data-act="open" aria-label="Меню плеера">' + IC.dots + '</button>' +
       '</div>' +
@@ -284,6 +302,8 @@ a{color:inherit}
           '<div class="sh">Поведение</div>' +
           '<button class="opt" data-act="pjax" role="switch" aria-checked="true"><span class="sw"></span><span>Не прерывать музыку при переходах</span></button>' +
           '<button class="opt" data-act="collapse" role="switch" aria-checked="true"><span class="sw"></span><span>Сворачивать кнопку в пузырёк</span></button>' +
+          '<button class="opt" data-act="breath" role="switch" aria-checked="true"><span class="sw"></span><span>Музыкальное дыхание кнопки</span></button>' +
+          '<div class="hint breath-hint">Точная реакция на частоты доступна для аудио с разрешённым доступом Web Audio. Если источник закрывает доступ (CORS), включается мягкая визуальная пульсация без анализа битов.</div>' +
           '<div class="sh">Избранное и плейлисты</div>' +
           '<div class="btns"><button class="bt" data-act="export">Экспорт в файл</button><button class="bt" data-act="import">Импорт из файла</button></div>' +
           '<button class="bt" data-act="hide">Скрыть плеер до перезагрузки страницы</button>' +
@@ -300,7 +320,7 @@ a{color:inherit}
   const ui = $('.ui'), dock = $('.dock'), sheet = $('.sheet'), hd = $('.hd'), list = $('.list'), tabsEl = $('.tabs');
   const titleEl = $('.title'), artistEl = $('.artist'), coverImg = $('.cover img');
   const curEl = $('.cur'), durEl = $('.dur'), bar = $('.bar'), fill = $('.fill'), knob = $('.knob');
-  const btnShuffle = $('[data-act=shuffle]'), btnRepeat = $('[data-act=repeat]'), btnPjax = $('[data-act=pjax]'), btnCollapse = $('[data-act=collapse]');
+  const btnShuffle = $('[data-act=shuffle]'), btnRepeat = $('[data-act=repeat]'), btnPjax = $('[data-act=pjax]'), btnCollapse = $('[data-act=collapse]'), btnBreath = $('[data-act=breath]');
   const qw = $('.qw'), qInp = $('.q'), pop = $('.pop'), fileInp = $('.file'), favCur = $('[data-act=favcur]'), gearBtn = $('[data-act=settings]');
   coverImg.onerror = () => { coverImg.hidden = true; };
   const thBox = $('.themes');
@@ -529,6 +549,84 @@ a{color:inherit}
     btnCollapse.querySelector('.sw').classList.toggle('on', autoCollapse);
     btnCollapse.setAttribute('aria-checked', autoCollapse ? 'true' : 'false');
   }
+  function applyBreathSwitch() {
+    btnBreath.querySelector('.sw').classList.toggle('on', musicBreath);
+    btnBreath.setAttribute('aria-checked', musicBreath ? 'true' : 'false');
+    dock.classList.toggle('breath-off', !musicBreath);
+    dock.classList.toggle('is-breathing', musicBreath && !audio.paused);
+    if (musicBreath && !audio.paused) startBreathLoop();
+    else if (!musicBreath) {
+      dock.style.setProperty('--breath', '0');
+      dock.style.setProperty('--breath-opacity', '.0');
+      dock.style.setProperty('--breath-scale', '1');
+    }
+  }
+  function initAnalyser() {
+    if (analyser) return true;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return false;
+    try {
+      const track = cur();
+      if (!track || !track.src) return false;
+      const srcUrl = new URL(track.src, location.href);
+      /* Connecting a media element to Web Audio can mute a non-CORS source.
+         Only attach when every track in the active queue is same-origin, so a
+         normal mixed-origin queue keeps its native playback path untouched. */
+      if (srcUrl.origin !== location.origin || queue.some((item) => { try { return new URL(item.src, location.href).origin !== location.origin; } catch (e) { return true; } })) return false;
+      audioCtx = audioCtx || new AC();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = .72;
+      analyser.minDecibels = -90;
+      analyser.maxDecibels = -20;
+      freqData = new Uint8Array(analyser.frequencyBinCount);
+      if (!sourceNode) sourceNode = audioCtx.createMediaElementSource(audio);
+      sourceNode.connect(analyser);
+      analyser.connect(audioCtx.destination);
+      return true;
+    } catch (e) {
+      analyser = null; freqData = null;
+      return false;
+    }
+  }
+  function startBreathLoop() {
+    if (breathFrame || !musicBreath) return;
+    dock.classList.add('is-breathing');
+    const tick = () => {
+      breathFrame = 0;
+      if (!musicBreath) {
+        dock.classList.remove('is-breathing');
+        dock.style.setProperty('--breath', '0');
+        dock.style.setProperty('--breath-opacity', '.0');
+        dock.style.setProperty('--breath-scale', '1');
+        return;
+      }
+      const active = !audio.paused && !document.hidden;
+      let target = 0;
+      if (active && analyser && freqData && audioCtx && audioCtx.state === 'running') {
+        analyser.getByteFrequencyData(freqData);
+        let bass = 0, mids = 0, highs = 0;
+        for (let i = 1; i <= 5; i++) bass += freqData[i];
+        for (let i = 6; i <= 35; i++) mids += freqData[i];
+        for (let i = 36; i <= 220; i++) highs += freqData[i];
+        bass /= 5 * 255; mids /= 30 * 255; highs /= 185 * 255;
+        target = Math.min(1, bass * .68 + mids * .23 + highs * .09);
+      } else if (active) {
+        /* Graceful non-spectral fallback: ambient motion, never represented as
+           frequency analysis. Actual beat sync requires same-origin/CORS access. */
+        const t = audio.currentTime || 0;
+        target = .13 + (Math.sin(t * 2.7) * .5 + .5) * .12;
+      }
+      const speed = target > breathLevel ? .28 : .085;
+      breathLevel += (target - breathLevel) * speed;
+      dock.style.setProperty('--breath', String(Math.max(0, Math.min(1, breathLevel))));
+      dock.style.setProperty('--breath-opacity', String(Math.max(.12, Math.min(1, .12 + breathLevel * .88))));
+      dock.style.setProperty('--breath-scale', String(1 + breathLevel * .17));
+      if (active || breathLevel > .008) breathFrame = requestAnimationFrame(tick);
+      else dock.classList.remove('is-breathing');
+    };
+    breathFrame = requestAnimationFrame(tick);
+  }
   let toastT = 0;
   function toast(msg) {
     $('.toast').textContent = msg;
@@ -692,6 +790,9 @@ a{color:inherit}
   function persistQueue() { store.set('queue', queue); store.set('idx', idx); }
   function playSafe() {
     armed = true;
+    if (!analyser) initAnalyser();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().then(() => { if (musicBreath) startBreathLoop(); }).catch(() => {});
+    if (musicBreath) startBreathLoop();
     const p = audio.play();
     if (p && p.catch) p.catch((err) => {
       if (err && err.name === 'NotAllowedError') toast('Нажмите ▶, чтобы запустить');
@@ -702,7 +803,9 @@ a{color:inherit}
     if (!t) return;
     idx = i;
     audio.preload = autoplay ? 'auto' : 'metadata';
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
     audio.src = t.src;
+    if (!analyser) initAnalyser();
     if (startAt) audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = startAt; } catch (e) {} }, { once: true });
     setMedia(t);
     if (autoplay) playSafe();
@@ -958,9 +1061,10 @@ a{color:inherit}
     return origPlay.apply(this, arguments);
   };
   let lastPersist = 0, lastPos = 0;
-  audio.addEventListener('play', () => { pauseForeign(); setPlayUI(); setMediaState(); });
-  audio.addEventListener('pause', () => { setPlayUI(); setMediaState(); store.set('time', audio.currentTime || 0); });
+  audio.addEventListener('play', () => { pauseForeign(); setPlayUI(); setMediaState(); if (musicBreath) { if (!analyser) initAnalyser(); if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {}); startBreathLoop(); } });
+  audio.addEventListener('pause', () => { setPlayUI(); setMediaState(); store.set('time', audio.currentTime || 0); if (musicBreath) startBreathLoop(); });
   audio.addEventListener('playing', () => { errStreak = 0; });
+  document.addEventListener('visibilitychange', () => { if (musicBreath && !audio.paused && !document.hidden) startBreathLoop(); });
   audio.addEventListener('ended', () => next(true));
   audio.addEventListener('durationchange', () => { progress(false); updatePosition(); });
   audio.addEventListener('timeupdate', () => {
@@ -1060,6 +1164,7 @@ a{color:inherit}
       case 'favcur': { const t3 = cur(); if (t3) toggleFav(t3); else toast('Сначала выберите трек'); break; }
       case 'settings': { const on = sheet.classList.toggle('set'); gearBtn.classList.toggle('on', on); if (!on) renderList(true); break; }
       case 'pjax': pjaxOn = !pjaxOn; store.set('pjax', pjaxOn); applyPjaxSwitch(); break;
+      case 'breath': musicBreath = !musicBreath; store.set('musicBreath', musicBreath); applyBreathSwitch(); break;
       case 'collapse':
         autoCollapse = !autoCollapse;
         store.set('collapse', autoCollapse);
@@ -1206,11 +1311,13 @@ a{color:inherit}
   if (cur()) {
     const t = cur(), st = Number(store.get('time', 0)) || 0;
     audio.preload = 'metadata';
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
     audio.src = t.src;
+    if (!analyser) initAnalyser();
     if (st > 1) audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = st; } catch (e) {} }, { once: true });
     setMedia(t);
   }
-  applyTheme(); renderNow(); applyModes(); applyPjaxSwitch(); applyCollapseSwitch(); setPlayUI(); progress(true); syncTabs();
+  applyTheme(); applyBreathSwitch(); renderNow(); applyModes(); applyPjaxSwitch(); applyCollapseSwitch(); setPlayUI(); progress(true); syncTabs();
   syncPage();
   updateVisibility();
 
