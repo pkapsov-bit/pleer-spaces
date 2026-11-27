@@ -354,6 +354,13 @@ a{color:inherit}
     ui.dataset.theme = theme;
     thBox.querySelectorAll('.th').forEach((b) => b.classList.toggle('on', b.dataset.th === theme));
   }
+  function setImmersive(v) {
+    immersive = !!v;
+    ui.classList.toggle('immersive', immersive);
+    store.set('immersive', immersive);
+    const b = $('[data-act=immersive]');
+    if (b) b.setAttribute('aria-pressed', immersive ? 'true' : 'false');
+  }
 
   /* ---------- треки на странице ---------- */
   const AUDIO_EXT = /\.(mp3|m4a|aac|ogg|oga|opus|wav|flac)(\?|#|$)/i;
