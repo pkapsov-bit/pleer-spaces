@@ -21,6 +21,7 @@
     <a href="demo.html">Страница 1</a>
     <a href="demo.html?p=2">Страница 2</a>
     <a href="demo.html?p=3">Без треков</a>
+    <a href="demo.html?p=4">8 треков</a>
   </nav>
   <div id="tracks"></div>
   <div class="fill"></div>
@@ -37,7 +38,7 @@
     return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
   }
   var p = new URLSearchParams(location.search).get('p');
-  var sets = { null: [['Тон 220 Гц', 220], ['Тон 330 Гц', 330], ['Тон 440 Гц', 440]], '2': [['Другой тон 262', 262], ['Другой тон 392', 392]], '3': [] };
+  var sets = { null: [['Тон 220 Гц', 220], ['Тон 330 Гц', 330], ['Тон 440 Гц', 440]], '2': [['Другой тон 262', 262], ['Другой тон 392', 392]], '3': [], '4': [['Тон 200',200],['Тон 250',250],['Тон 300',300],['Тон 350',350],['Тон 400',400],['Тон 450',450],['Тон 500',500],['Тон 550',550]] };
   var list = sets[p] || sets['null'];
   var box = document.getElementById('tracks');
   document.getElementById('h').textContent = 'Демо-страница ' + (p || '1');
